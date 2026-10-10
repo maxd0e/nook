@@ -5,3 +5,6 @@ indent_size = 4
 max_line_length = 120
 insert_final_newline = true
 ktlint_standard_function-naming = disabled
+
+[**/build/generated/**/*.kt]
+ktlint_standard = disabled

@@ -1,0 +1,24 @@
+CREATE TABLE nook_event (
+    id TEXT NOT NULL PRIMARY KEY,
+    public_key TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    kind INTEGER NOT NULL,
+    tags TEXT NOT NULL,
+    content TEXT NOT NULL,
+    signature TEXT NOT NULL,
+    d_tag TEXT NOT NULL,
+    dirty INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM nook_event;
+
+insertEvent:
+INSERT OR IGNORE INTO nook_event(
+    id, public_key, created_at, kind, tags, content, signature, d_tag, dirty
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+markClean:
+UPDATE nook_event
+SET dirty = 0
+WHERE id = ?;
