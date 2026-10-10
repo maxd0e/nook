@@ -5,6 +5,10 @@ import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.UnsignedNostrEvent
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -41,6 +45,29 @@ class NookPayloadEventTest {
     }
 
     @Test
+    fun checklistItems_keepUnknownFieldsWhenRewritten() {
+        val decoded =
+            NookPayloadJson.decode(
+                """
+                {"v":1,"type":"checklist","title":"Trip",
+                "items":[{"id":"passport","text":"Passport","done":false,"dueAt":42}],
+                "pinned":false,"createdAt":12,"updatedAt":13}
+                """.trimIndent(),
+            ) as ChecklistPayload
+
+        val encoded = NookPayloadJson.encode(decoded.withUpdatedAt(14))
+
+        val item =
+            kotlinx.serialization.json.Json
+                .parseToJsonElement(encoded)
+                .jsonObject["items"]!!
+                .jsonArray[0]
+                .jsonObject
+
+        assertEquals(42, item["dueAt"]!!.jsonPrimitive.long)
+    }
+
+    @Test
     fun builtEvent_isEncryptedNookEventAndParsesBack() {
         val payload = NotePayload("Secret", "private body", false, 10, 11)
 
@@ -72,5 +99,22 @@ class NookPayloadEventTest {
 
         assertNull(codec.parse(foreign))
         assertNull(codec.parse(undecryptable))
+    }
+
+    @Test
+    fun eventSignedByAnotherKey_isIgnoredEvenWhenCiphertextDecrypts() {
+        val encrypted =
+            Nip44Cipher.encryptToSelf(
+                NookPayloadJson.encode(NotePayload("Title", "Body", false, 1, 1)),
+                keyPair,
+            )
+        val attacker = NostrKeyPair.generate()
+        val event =
+            NostrEventSigner.sign(
+                UnsignedNostrEvent(2, NookEventCodec.NOOK_KIND, listOf(listOf("d", "nook:target")), encrypted),
+                attacker,
+            )
+
+        assertNull(codec.parse(event))
     }
 }

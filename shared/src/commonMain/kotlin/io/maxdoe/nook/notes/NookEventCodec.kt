@@ -33,31 +33,34 @@ class NookEventCodec(
         )
     }
 
-    fun parse(event: SignedNostrEvent): ParsedNookEvent? =
-        event
-            .takeIf { it.kind == NOOK_KIND && NostrEventSigner.verify(it) }
-            ?.let { signedEvent ->
-                val dValue =
-                    signedEvent.tags
-                        .firstOrNull { it.firstOrNull() == D_TAG }
-                        ?.getOrNull(1)
-                dValue?.let { value ->
-                    value
-                        .takeIf { it.startsWith(NOOK_PREFIX) && it.length > NOOK_PREFIX.length }
-                        ?.let { taggedNoteId ->
-                            Nip44Cipher
-                                .decryptFromSelf(signedEvent.content, keyPair)
-                                ?.let(NookPayloadJson::decode)
-                                ?.let { payload ->
-                                    ParsedNookEvent(
-                                        noteId = taggedNoteId.removePrefix(NOOK_PREFIX),
-                                        event = signedEvent,
-                                        payload = payload,
-                                    )
-                                }
+    fun parse(event: SignedNostrEvent): ParsedNookEvent? {
+        val signedEvent =
+            event.takeIf {
+                it.kind == NOOK_KIND &&
+                    it.publicKey == keyPair.publicKeyHex &&
+                    NostrEventSigner.verify(it)
+            } ?: return null
+        val dValue =
+            signedEvent.tags
+                .firstOrNull { it.firstOrNull() == D_TAG }
+                ?.getOrNull(1)
+        return dValue?.let { value ->
+            value
+                .takeIf { it.startsWith(NOOK_PREFIX) && it.length > NOOK_PREFIX.length }
+                ?.let { taggedNoteId ->
+                    Nip44Cipher
+                        .decryptFromSelf(signedEvent.content, keyPair)
+                        ?.let(NookPayloadJson::decode)
+                        ?.let { payload ->
+                            ParsedNookEvent(
+                                noteId = taggedNoteId.removePrefix(NOOK_PREFIX),
+                                event = signedEvent,
+                                payload = payload,
+                            )
                         }
                 }
-            }
+        }
+    }
 
     companion object {
         const val NOOK_KIND = 30_078

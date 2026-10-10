@@ -34,7 +34,9 @@ publish/retry behavior, and fake-relay tests.
 
 - Shared tests cover official NIP-44 v2 conversation-key and deterministic
   encryption vectors, Unicode/long-text round trips, tamper failure, Bech32
-  validation, generated keys, and event ID/signature verification.
+  validation, generated keys, event ID/signature verification, rejection of
+  foreign-signed self-ciphertext events, and preservation of checklist-item
+  extension fields.
 - `:androidApp:assembleDebug`, both unit-test tasks, Detekt, ktlint, and
   Android Lint pass. iOS target tests remain unchecked on Windows.
 - Verify a signed kind-`30078` publish acknowledgment from each chosen relay

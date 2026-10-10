@@ -34,6 +34,7 @@ data class ChecklistItem(
     val id: String,
     val text: String,
     val done: Boolean,
+    val unknownFields: Map<String, JsonElement> = emptyMap(),
 )
 
 data class ChecklistPayload(
@@ -135,6 +136,7 @@ object NookPayloadJson {
                             items.forEach { item ->
                                 add(
                                     buildJsonObject {
+                                        item.unknownFields.forEach { (key, value) -> put(key, value) }
                                         put("id", item.id)
                                         put("text", item.text)
                                         put("done", item.done)
@@ -161,6 +163,7 @@ object NookPayloadJson {
                 id = item.requiredString("id"),
                 text = item.requiredString("text"),
                 done = item.requiredBoolean("done"),
+                unknownFields = item.unknownExcept("id", "text", "done"),
             )
         }
 
