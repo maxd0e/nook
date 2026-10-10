@@ -10,6 +10,7 @@ import io.maxdoe.nook.notes.NoteRepository
 import io.maxdoe.nook.notes.TombstonePayload
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -154,6 +155,27 @@ class RelaySyncTest {
             sync.stop()
         }
 
+    @Test
+    fun stop_waitsForRelayCleanupBeforeItAllowsRestart() =
+        runBlocking {
+            val repository = repository()
+            val closeGate = Channel<Unit>(1)
+            val relay = FakeRelayTransport(delayedFirstClose = closeGate)
+            val sync = sync(repository, relay)
+            waitUntil { relay.connections.isNotEmpty() }
+
+            val stopping = async { sync.stop() }
+            relay.closeStarted.receive()
+            assertFalse(stopping.isCompleted)
+
+            closeGate.send(Unit)
+            stopping.await()
+            sync.start()
+            waitUntil { relay.connections.size == 2 }
+            assertFalse(relay.connections.last().closed)
+            sync.stop()
+        }
+
     private fun repository(): TestRepository {
         val store = FakeEncryptedEventStore()
         return TestRepository(NoteRepository(store, codec, EpochSecondsClock { 100 }), store)
@@ -205,18 +227,27 @@ class RelaySyncTest {
 
     private class FakeRelayTransport(
         var available: Boolean = true,
+        private val delayedFirstClose: Channel<Unit>? = null,
     ) : RelayTransport {
         val connections = mutableListOf<FakeRelayConnection>()
+        val closeStarted = Channel<Unit>(1)
 
         override suspend fun connect(url: String): RelayConnection {
             check(available) { "offline" }
-            return FakeRelayConnection().also(connections::add)
+            return FakeRelayConnection(
+                closeGate = if (connections.isEmpty()) delayedFirstClose else null,
+                closeStarted = if (connections.isEmpty()) closeStarted else null,
+            ).also(connections::add)
         }
     }
 
-    private class FakeRelayConnection : RelayConnection {
+    private class FakeRelayConnection(
+        private val closeGate: Channel<Unit>? = null,
+        private val closeStarted: Channel<Unit>? = null,
+    ) : RelayConnection {
         private val incoming = Channel<RelayMessage>(Channel.UNLIMITED)
         val sent = mutableListOf<RelayCommand>()
+        var closed = false
 
         override val messages: Flow<RelayMessage> = incoming.receiveAsFlow()
 
@@ -225,6 +256,9 @@ class RelaySyncTest {
         }
 
         override suspend fun close() {
+            closeStarted?.trySend(Unit)
+            closeGate?.receive()
+            closed = true
             incoming.close()
         }
 

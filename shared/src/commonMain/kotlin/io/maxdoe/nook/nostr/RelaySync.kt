@@ -3,6 +3,7 @@ package io.maxdoe.nook.nostr
 import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
@@ -37,9 +38,9 @@ class RelaySync(
     }
 
     suspend fun stop() {
-        rootJob?.cancel()
+        rootJob?.cancelAndJoin()
         rootJob = null
-        publishJob?.cancel()
+        publishJob?.cancelAndJoin()
         publishJob = null
         val openConnections =
             connectionMutex.withLock {
