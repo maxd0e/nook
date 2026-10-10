@@ -1,17 +1,21 @@
 [versions]
 agp = "9.4.1"
-kotlin = "2.3.20"
+kotlin = "2.4.10"
 composeBom = "2026.03.00"
 activityCompose = "1.12.3"
 junit = "4.13.2"
 junitVersion = "1.3.0"
 detekt = "2.0.0-alpha.6"
 ktlint = "14.2.0"
+quartz = "1.13.1"
+secp256k1 = "0.23.0"
 
 [libraries]
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 kotlin-test = { group = "org.jetbrains.kotlin", name = "kotlin-test", version.ref = "kotlin" }
+quartz = { group = "com.vitorpamplona.quartz", name = "quartz", version.ref = "quartz" }
+secp256k1-jvm = { group = "fr.acinq.secp256k1", name = "secp256k1-kmp-jni-jvm", version.ref = "secp256k1" }
 androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
 androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
 androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
