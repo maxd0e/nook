@@ -46,9 +46,12 @@ class NostrKeyPair private constructor(
             expectedPrefix: String,
         ): ByteArray? =
             runCatching {
-                require(value == value.lowercase()) { "Mixed-case Bech32 input is not supported." }
-                require(value.startsWith("$expectedPrefix" + "1")) { "Unexpected Bech32 prefix." }
-                value.bechToBytes()
+                require(!value.any(Char::isLowerCase) || !value.any(Char::isUpperCase)) {
+                    "Mixed-case Bech32 input is not supported."
+                }
+                val normalizedValue = value.lowercase()
+                require(normalizedValue.startsWith("$expectedPrefix" + "1")) { "Unexpected Bech32 prefix." }
+                normalizedValue.bechToBytes()
             }.getOrNull()
 
         private const val KEY_SIZE_BYTES = 32

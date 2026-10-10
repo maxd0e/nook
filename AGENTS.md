@@ -6,6 +6,19 @@ This Android/Gradle project contains `:shared` and `:androidApp`. Portable Kotli
 
 Product requirements and visual references are in `docs/`: read `docs/spec.md` before implementing features and use `docs/mock/` as the UI reference. Do not introduce libraries without a clear need and agreement.
 
+## Working Context
+
+Before adding a feature or broadly scanning the codebase, read the root
+`docs/status.md` file. It is the concise source of truth for the current milestone,
+what has already been completed, and the focused next task. Use it to limit
+inspection to files relevant to the active work, rather than scanning the
+entire repository for routine context gathering.
+
+`docs/status.md` supplements, rather than replaces, the required feature review of
+`docs/spec.md`, the phased workflow in `docs/plan.md`, and UI references in
+`docs/mock/`. Update `docs/status.md` after each completed feature milestone with
+the completed work, next work, validation, and blockers or open decisions.
+
 ## Build, Test, and Development Commands
 
 Run commands from the repository root in PowerShell:

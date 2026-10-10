@@ -22,10 +22,21 @@ class NostrKeysTest {
     }
 
     @Test
+    fun uppercaseBech32Keys_areAccepted() {
+        val generated = NostrKeyPair.generate()
+
+        val restored = assertNotNull(NostrKeyPair.fromNsec(generated.nsec().uppercase()))
+
+        assertEquals(generated.publicKeyHex, restored.publicKeyHex)
+        assertEquals(generated.publicKeyHex, NostrKeyPair.decodeNpub(generated.npub.uppercase()))
+    }
+
+    @Test
     fun malformedBech32Key_isRejected() {
         assertNull(NostrKeyPair.fromNsec("npub1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq"))
         assertNull(NostrKeyPair.fromNsec("nsec1invalid"))
         assertNull(NostrKeyPair.decodeNpub("NPUB1INVALID"))
+        assertNull(NostrKeyPair.fromNsec("N" + NostrKeyPair.generate().nsec().drop(1)))
     }
 
     @Test
