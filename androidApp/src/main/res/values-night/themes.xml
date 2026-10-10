@@ -1,0 +1,5 @@
+<resources>
+    <style name="Theme.Nook" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>

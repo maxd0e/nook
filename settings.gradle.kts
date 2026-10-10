@@ -23,4 +23,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "nook"
-include(":app")
+include(":shared")
+include(":androidApp")
