@@ -107,3 +107,4 @@ One line per finished step: `YYYY-MM-DD  Step N  what was done`
 2026-10-10  Step 0  Added KMP shared module, Compose Android app shell, quality checks, and smoke tests
 2026-10-10  Step 1  Added Quartz-backed portable Nostr keys, NIP-44 encryption, Bech32, event signing, relay defaults, and tests
 2026-10-10  Step 2  Added encrypted Nook payloads/events, SQLDelight storage, repository/search, and tests
+2026-10-11  Step 3  Added Ktor relay transport, subscription/publish/retry sync, and fake-relay tests; real-relay confirmation pending

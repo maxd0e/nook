@@ -70,6 +70,9 @@ class NoteRepository(
         refresh()
     }
 
+    /** Returns locally created encrypted events that still need relay delivery. */
+    fun dirtyEvents(): List<SignedNostrEvent> = store.all().filter(StoredNostrEvent::dirty).map(StoredNostrEvent::event)
+
     fun search(query: String): List<NookListItem> {
         val normalizedQuery = query.trim().lowercase()
         if (normalizedQuery.isEmpty()) return notes.value

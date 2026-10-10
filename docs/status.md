@@ -2,10 +2,9 @@
 
 ## Current milestone
 
-**Step 2 — Notes data is complete.**
+**Step 3 — Relay sync implementation is complete; real-relay manual confirmation remains.**
 
-**Next: Step 3 — Relay sync.** Build the Ktor WebSocket client, subscription,
-publish/retry behavior, and fake-relay tests.
+**Next: Complete the Step 3 real-relay confirmation, then begin Step 4 — Login.**
 
 ## Current state
 
@@ -28,7 +27,12 @@ publish/retry behavior, and fake-relay tests.
   in a SQLDelight database as encrypted event fields only.
 - The shared repository exposes an in-memory decrypted `Flow` projection and
   local search, resolves conflicts by timestamp then event ID, and marks local
-  versions dirty. Relay sync, login, and UI remain unimplemented.
+  versions dirty.
+- Shared relay sync now uses Ktor WebSockets with Android and iOS engines. It
+  subscribes to the fixed relays for the active author and kind `30078`, saves
+  valid incoming encrypted events, debounces dirty-event publishing by one
+  second, retries after reconnect, and clears dirty state after the first
+  successful relay acknowledgment. Login and note UI remain unimplemented.
 
 ## Validation and open decisions
 
@@ -38,10 +42,9 @@ publish/retry behavior, and fake-relay tests.
   foreign-signed self-ciphertext events, and preservation of checklist-item
   extension fields.
 - `:androidApp:assembleDebug`, both unit-test tasks, Detekt, ktlint, and
-  Android Lint pass. iOS target tests remain unchecked on Windows.
-- Verify a signed kind-`30078` publish acknowledgment from each chosen relay
-  when the WebSocket relay client is built in Step 3; NIP-11 metadata alone
-  cannot prove per-kind acceptance.
+  Android Lint pass after Step 3. iOS target tests remain unchecked on Windows.
+- Manually verify a signed kind-`30078` publish acknowledgment from at least
+  one configured relay. NIP-11 metadata alone cannot prove per-kind acceptance.
 - Confirm whether kind `30078` remains the appropriate long-term kind.
 
 ## Working rules
