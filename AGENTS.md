@@ -2,32 +2,34 @@
 
 ## Project Structure & Module Organization
 
-This is an Android/Gradle project currently containing the `:app` module. Application code belongs in `app/src/main/`, with the manifest at `app/src/main/AndroidManifest.xml` and Android resources under `app/src/main/res/`. Put local JVM tests in `app/src/test/` and device/emulator tests in `app/src/androidTest/`. Gradle configuration lives in `build.gradle.kts`, `settings.gradle.kts`, `app/build.gradle.kts`, and `gradle/libs.versions.toml`.
+This Android/Gradle project contains `:shared` and `:androidApp`. Portable Kotlin Multiplatform logic belongs in `shared/src/commonMain/`; keep it free of `java.*` and `android.*`. The Android Compose application belongs in `androidApp/src/main/`, with local JVM tests in `androidApp/src/test/`, device/emulator tests in `androidApp/src/androidTest/`, and shared tests in `shared/src/commonTest/`. Gradle configuration lives in `build.gradle.kts`, `settings.gradle.kts`, each module's `build.gradle.kts`, and `gradle/libs.versions.toml`.
 
-Product requirements and visual references are in `docs/`: read `docs/spec.md` before implementing features and use `docs/mock/` as the UI reference. The spec anticipates future `:shared` and `:androidApp` modules; do not introduce them or new libraries without a clear need and agreement.
+Product requirements and visual references are in `docs/`: read `docs/spec.md` before implementing features and use `docs/mock/` as the UI reference. Do not introduce libraries without a clear need and agreement.
 
 ## Build, Test, and Development Commands
 
 Run commands from the repository root in PowerShell:
 
 ```powershell
-.\gradlew.bat assembleDebug          # build a debug APK
-.\gradlew.bat test                   # run local unit tests
-.\gradlew.bat connectedAndroidTest   # run instrumentation tests on a device/emulator
-.\gradlew.bat lint                   # run Android Lint
+.\gradlew.bat :androidApp:assembleDebug                         # build a debug APK
+.\gradlew.bat :shared:testAndroid :androidApp:testDebugUnitTest # run unit tests
+.\gradlew.bat :androidApp:connectedDebugAndroidTest             # run the device smoke test
+.\gradlew.bat :shared:detekt :androidApp:detekt                 # run static analysis
+.\gradlew.bat :shared:ktlintCheck :androidApp:ktlintCheck       # check Kotlin formatting
+.\gradlew.bat :androidApp:lintDebug                             # run Android Lint
 ```
 
-Use Android Studio to run the `app` configuration during UI development. Keep `local.properties` local: it contains machine-specific Android SDK settings.
+Run `:androidApp:ktlintFormat` only when deliberately applying formatter changes; it rewrites source files. Use Android Studio to run the `androidApp` configuration during UI development. Keep `local.properties` local: it contains machine-specific Android SDK settings.
 
 ## Coding Style & Naming Conventions
 
 Write Kotlin with four-space indentation and conventional Kotlin naming: `PascalCase` for classes, composables, and test classes; `camelCase` for functions, properties, and resources where applicable; and lowercase underscore-separated Android resource names (for example, `screen_note_editor.xml`). Keep package names under `io.maxdoe.nook`.
 
-Prefer small, focused classes and clear immutable models. Use Kotlin DSL for Gradle changes and register dependency versions in `gradle/libs.versions.toml`, rather than scattering version strings. The project has no configured formatter; use Android Studio's Kotlin formatting and run lint before review.
+Prefer small, focused classes and clear immutable models. Use Kotlin DSL for Gradle changes and register dependency versions in `gradle/libs.versions.toml`, rather than scattering version strings. Follow ktlint formatting and run Detekt, ktlint, and Android Lint before review.
 
 ## Testing Guidelines
 
-Use JUnit 4 for unit tests and AndroidX JUnit/Espresso for instrumentation tests. Name tests descriptively, e.g. `NoteRepositoryTest` and `savingNote_marksItDirty`. Add unit coverage for new non-UI logic and instrumentation coverage when behavior depends on Android components or views. Run the smallest relevant task while iterating, then `test` and `lint` before submitting.
+Use `kotlin.test` in `:shared`, JUnit 4 in Android local tests, and AndroidX JUnit/Compose test APIs for instrumentation tests. Name tests descriptively, e.g. `NoteRepositoryTest` and `savingNote_marksItDirty`. Add unit coverage for new non-UI logic and instrumentation coverage when behavior depends on Android components or views. Run the smallest relevant task while iterating; before submitting, run both unit-test tasks, Detekt, ktlint, and Android Lint. Run the connected smoke test when an emulator or device is available.
 
 ## Commit & Pull Request Guidelines
 
