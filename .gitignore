@@ -16,3 +16,4 @@ local.properties
 docs/
 AGENTS.md
 docs/status.md
+.kotlin/
