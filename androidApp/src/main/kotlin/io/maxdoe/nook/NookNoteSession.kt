@@ -16,7 +16,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 class NookNoteSession(
     nsec: String,
@@ -28,6 +29,7 @@ class NookNoteSession(
     val repository: NoteRepository
 
     private val sync: RelaySync
+    private val closeMutex = Mutex()
     private var closed = false
 
     init {
@@ -43,10 +45,10 @@ class NookNoteSession(
         sync.start()
     }
 
-    fun close() {
-        if (closed) return
-        closed = true
-        scope.launch {
+    suspend fun close() {
+        closeMutex.withLock {
+            if (closed) return
+            closed = true
             sync.stop()
             client.close()
             driver.close()

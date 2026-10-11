@@ -36,6 +36,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 const val HOME_ROOT_TEST_TAG = "nook_home"
 private const val LOGIN_ROOT_TEST_TAG = "login_root"
@@ -54,6 +56,7 @@ private const val LOGIN_ROOT_TEST_TAG = "login_root"
 @Composable
 fun NookHome(sessionStore: LoginSessionStore) {
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
     val controller = remember(sessionStore) { LoginSessionController(sessionStore) }
     var screen by remember { mutableStateOf(controller.screen) }
     var noteSession by remember { mutableStateOf<NookNoteSession?>(null) }
@@ -74,7 +77,7 @@ fun NookHome(sessionStore: LoginSessionStore) {
     }
 
     DisposableEffect(noteSession) {
-        onDispose { noteSession?.close() }
+        onDispose { coroutineScope.launch { noteSession?.close() } }
     }
 
     Surface(Modifier.fillMaxSize().testTag(HOME_ROOT_TEST_TAG), color = MaterialTheme.colorScheme.background) {
@@ -122,11 +125,13 @@ fun NookHome(sessionStore: LoginSessionStore) {
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
                     NookNotes(session.repository) {
-                        session.close()
-                        noteSession = null
-                        pastedKey = ""
-                        controller.logout()
-                        updateScreen()
+                        coroutineScope.launch {
+                            session.close()
+                            noteSession = null
+                            pastedKey = ""
+                            controller.logout()
+                            updateScreen()
+                        }
                     }
                 } ?: SignedInScreen {
                     pastedKey = ""
