@@ -15,24 +15,26 @@ private val LightColors =
     lightColorScheme(
         primary = Color(0xFF1E4D4A),
         onPrimary = Color.White,
-        background = Color(0xFFFBF8F2),
-        onBackground = Color(0xFF1B2422),
+        background = Color(0xFFFAF8F3),
+        onBackground = Color(0xFF1E2927),
         surface = Color.White,
-        onSurface = Color(0xFF1B2422),
-        surfaceVariant = Color(0xFFF0EADC),
-        onSurfaceVariant = Color(0xFF5E6862),
-        outline = Color(0xFFE6E0D2),
+        onSurface = Color(0xFF1E2927),
+        surfaceVariant = Color(0xFFF1EDE1),
+        onSurfaceVariant = Color(0xFF626B67),
+        outline = Color(0xFFE4DED0),
     )
 
 private val DarkColors =
     darkColorScheme(
-        primary = Color(0xFF7FC4B8),
-        onPrimary = Color(0xFF101917),
-        background = Color(0xFF101917),
-        onBackground = Color(0xFFE8EFEC),
-        surface = Color(0xFF17211F),
-        onSurface = Color(0xFFE8EFEC),
-        onSurfaceVariant = Color(0xFF9BA8A3),
+        primary = Color(0xFF9AD6CA),
+        onPrimary = Color(0xFF10201D),
+        background = Color(0xFF111B19),
+        onBackground = Color(0xFFEAF0ED),
+        surface = Color(0xFF1A2825),
+        onSurface = Color(0xFFEAF0ED),
+        surfaceVariant = Color(0xFF263632),
+        onSurfaceVariant = Color(0xFFB3C0BA),
+        outline = Color(0xFF3D4D48),
     )
 
 private val NookTypography =
@@ -42,13 +44,17 @@ private val NookTypography =
                 fontFamily = FontFamily.Serif,
                 fontWeight = FontWeight.SemiBold,
             ),
+        headlineLarge = TextStyle(fontFamily = FontFamily.Serif, fontWeight = FontWeight.SemiBold),
         bodyLarge = TextStyle(fontFamily = FontFamily.SansSerif),
     )
 
 @Composable
-fun NookTheme(content: @Composable () -> Unit) {
+fun NookTheme(
+    darkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
     MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
+        colorScheme = if (darkTheme) DarkColors else LightColors,
         typography = NookTypography,
         content = content,
     )

@@ -2,6 +2,7 @@
 
 package io.maxdoe.nook
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -27,6 +28,8 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -55,6 +58,10 @@ import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 
 private sealed interface NotesDestination {
@@ -131,9 +138,9 @@ private fun NotesList(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(12.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 36.sp)
+                    Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 42.sp)
                     Spacer(Modifier.weight(1f))
                     SyncStatus(currentSyncStatus, currentSyncHealth)
                     Spacer(Modifier.width(12.dp))
@@ -143,15 +150,22 @@ private fun NotesList(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                Spacer(Modifier.height(16.dp))
-                OutlinedTextField(
+                Spacer(Modifier.height(15.dp))
+                TextField(
                     value = query,
                     onValueChange = { query = it },
                     modifier = Modifier.fillMaxWidth().testTag("notes_search"),
                     singleLine = true,
                     leadingIcon = { Text("⌕", fontSize = 32.sp) },
-                    placeholder = { Text("Search", fontSize = 28.sp) },
-                    shape = RoundedCornerShape(12.dp),
+                    placeholder = { Text("Search", fontSize = 17.sp) },
+                    shape = RoundedCornerShape(14.dp),
+                    colors =
+                        TextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                        ),
                 )
             }
             if (matching.isEmpty()) {
@@ -285,38 +299,55 @@ private fun NookCard(
                         else -> Unit
                     }
                 }.testTag("note_${item.id}"),
-        shape = RoundedCornerShape(28.dp),
+        shape = RoundedCornerShape(16.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column(Modifier.padding(horizontal = 34.dp, vertical = 26.dp)) {
+        Column(Modifier.padding(horizontal = 18.dp, vertical = 18.dp)) {
             when (val payload = item.payload) {
                 is NotePayload -> {
-                    Text(
-                        payload.title.ifBlank { "Untitled" },
-                        style = MaterialTheme.typography.displayLarge,
-                        fontSize = 38.sp,
-                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            payload.title.ifBlank { "Untitled" },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.displayLarge,
+                            fontSize = 28.sp,
+                        )
+                        Text(
+                            relativeDate(payload.updatedAt),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                    }
                     if (payload.body.isNotBlank()) {
-                        Spacer(Modifier.height(14.dp))
+                        Spacer(Modifier.height(10.dp))
                         Text(
                             payload.body.replace(Regex("[#*_`>-]"), "").trim(),
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            fontSize = 22.sp,
+                            fontSize = 17.sp,
                             maxLines = 2,
                         )
                     }
                 }
                 is ChecklistPayload -> {
-                    Text(
-                        payload.title.ifBlank { "Untitled checklist" },
-                        style = MaterialTheme.typography.displayLarge,
-                        fontSize = 38.sp,
-                    )
-                    Spacer(Modifier.height(14.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            payload.title.ifBlank { "Untitled checklist" },
+                            modifier = Modifier.weight(1f),
+                            style = MaterialTheme.typography.displayLarge,
+                            fontSize = 28.sp,
+                        )
+                        Text(
+                            relativeDate(payload.updatedAt),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 13.sp,
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
                     Text(
                         "${payload.items.count(ChecklistItem::done)} of ${payload.items.size} done",
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 22.sp,
+                        fontSize = 17.sp,
                     )
                 }
                 is io.maxdoe.nook.notes.TombstonePayload -> Unit
@@ -331,6 +362,19 @@ private fun io.maxdoe.nook.notes.NookPayload.isPinned(): Boolean =
         is ChecklistPayload -> pinned
         is io.maxdoe.nook.notes.TombstonePayload -> false
     }
+
+private fun relativeDate(epochSeconds: Long): String {
+    val date = Instant.ofEpochSecond(epochSeconds).atZone(ZoneId.systemDefault()).toLocalDate()
+    val today = LocalDate.now()
+    return when (date) {
+        today -> "Today"
+        today.minusDays(1) -> "Yesterday"
+        else ->
+            date.format(
+                DateTimeFormatter.ofPattern(if (date.year == today.year) "MMM d" else "MMM d, uuuu"),
+            )
+    }
+}
 
 @Composable
 @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -371,8 +415,8 @@ private fun NoteEditor(
         saveIfNeeded()
     }
 
-    Column(Modifier.fillMaxSize().padding(horizontal = 40.dp).testTag("note_editor")) {
-        Spacer(Modifier.height(28.dp))
+    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp).testTag("note_editor")) {
+        Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
                 "‹",
@@ -382,13 +426,13 @@ private fun NoteEditor(
                         onBack()
                     },
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 52.sp,
+                fontSize = 40.sp,
             )
             Spacer(Modifier.weight(1f))
             SyncStatus(currentSyncStatus, currentSyncHealth)
             Spacer(Modifier.width(20.dp))
             Text(
-                if (pinned) "Unpin" else "Pin",
+                if (pinned) "⌑" else "⌖",
                 modifier =
                     Modifier.clickable {
                         saveIfNeeded()
@@ -396,30 +440,30 @@ private fun NoteEditor(
                         pinned = !pinned
                     },
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 20.sp,
+                fontSize = 25.sp,
             )
             Spacer(Modifier.width(28.dp))
             Text(
-                "Delete",
+                "⌫",
                 modifier =
                     Modifier.clickable {
                         noteId?.let(repository::delete)
                         onBack()
                     },
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 20.sp,
+                fontSize = 25.sp,
             )
         }
-        Spacer(Modifier.height(18.dp))
+        Spacer(Modifier.height(12.dp))
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
             modifier = Modifier.fillMaxWidth().testTag("note_title"),
-            placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 56.sp) },
+            placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
             textStyle =
                 androidx.compose.ui.text.TextStyle(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                    fontSize = 56.sp,
+                    fontSize = 34.sp,
                 ),
             singleLine = true,
         )
@@ -431,7 +475,7 @@ private fun NoteEditor(
             placeholder = { Text("Start writing…", fontSize = 24.sp) },
             textStyle =
                 androidx.compose.ui.text
-                    .TextStyle(fontSize = 25.sp, lineHeight = 38.sp),
+                    .TextStyle(fontSize = 18.sp, lineHeight = 27.sp),
         )
         MarkdownToolbar(
             onBold = { body = toggleInlineMarkdown(body, "**") },
@@ -485,8 +529,8 @@ private fun ChecklistEditor(
     val activeItems = items.filterNot(ChecklistItem::done)
     val completedItems = items.filter(ChecklistItem::done)
     Column(Modifier.fillMaxSize().testTag("checklist_editor")) {
-        Column(Modifier.weight(1f).padding(horizontal = 40.dp)) {
-            Spacer(Modifier.height(28.dp))
+        Column(Modifier.weight(1f).padding(horizontal = 24.dp)) {
+            Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "‹",
@@ -496,13 +540,13 @@ private fun ChecklistEditor(
                             onBack()
                         },
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 52.sp,
+                    fontSize = 40.sp,
                 )
                 Spacer(Modifier.weight(1f))
                 SyncStatus(currentSyncStatus, currentSyncHealth)
                 Spacer(Modifier.width(20.dp))
                 Text(
-                    if (pinned) "Unpin" else "Pin",
+                    if (pinned) "⌑" else "⌖",
                     modifier =
                         Modifier.clickable {
                             saveIfNeeded()
@@ -512,30 +556,30 @@ private fun ChecklistEditor(
                             }
                         },
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 20.sp,
+                    fontSize = 25.sp,
                 )
                 Spacer(Modifier.width(28.dp))
                 Text(
-                    "Delete",
+                    "⌫",
                     modifier =
                         Modifier.clickable {
                             checklistId?.let(repository::delete)
                             onBack()
                         },
                     color = MaterialTheme.colorScheme.primary,
-                    fontSize = 20.sp,
+                    fontSize = 25.sp,
                 )
             }
-            Spacer(Modifier.height(18.dp))
+            Spacer(Modifier.height(12.dp))
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth().testTag("checklist_title"),
-                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 56.sp) },
+                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
                 textStyle =
                     androidx.compose.ui.text.TextStyle(
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                        fontSize = 56.sp,
+                        fontSize = 34.sp,
                     ),
                 singleLine = true,
             )
@@ -543,7 +587,7 @@ private fun ChecklistEditor(
                 "${completedItems.size} of ${items.size} packed",
                 modifier = Modifier.padding(top = 18.dp),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 24.sp,
+                fontSize = 17.sp,
             )
             Spacer(Modifier.height(22.dp))
             activeItems.forEach { item ->
@@ -563,13 +607,13 @@ private fun ChecklistEditor(
                 )
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 40.sp)
+                Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 32.sp)
                 Spacer(Modifier.width(18.dp))
                 OutlinedTextField(
                     value = newItemText,
                     onValueChange = { newItemText = it },
                     modifier = Modifier.weight(1f).testTag("checklist_add_item"),
-                    placeholder = { Text("Add item", fontSize = 24.sp) },
+                    placeholder = { Text("Add item", fontSize = 18.sp) },
                     singleLine = true,
                 )
                 Text(

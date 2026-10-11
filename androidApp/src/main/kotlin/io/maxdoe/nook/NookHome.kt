@@ -5,6 +5,7 @@ package io.maxdoe.nook
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,7 +55,11 @@ const val HOME_ROOT_TEST_TAG = "nook_home"
 private const val LOGIN_ROOT_TEST_TAG = "login_root"
 
 @Composable
-fun NookHome(sessionStore: LoginSessionStore) {
+fun NookHome(
+    sessionStore: LoginSessionStore,
+    isDarkTheme: Boolean = isSystemInDarkTheme(),
+    onThemeToggle: () -> Unit = {},
+) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val controller = remember(sessionStore) { LoginSessionController(sessionStore) }
@@ -84,13 +89,18 @@ fun NookHome(sessionStore: LoginSessionStore) {
     Surface(Modifier.fillMaxSize().testTag(HOME_ROOT_TEST_TAG), color = MaterialTheme.colorScheme.background) {
         when (val current = screen) {
             LoginScreen.Welcome ->
-                WelcomeScreen({
-                    controller.createKey()
-                    updateScreen()
-                }, {
-                    controller.showPasteKey()
-                    updateScreen()
-                })
+                WelcomeScreen(
+                    onCreateKey = {
+                        controller.createKey()
+                        updateScreen()
+                    },
+                    onPasteKey = {
+                        controller.showPasteKey()
+                        updateScreen()
+                    },
+                    isDarkTheme = isDarkTheme,
+                    onThemeToggle = onThemeToggle,
+                )
             LoginScreen.PasteKey ->
                 PasteKeyScreen(
                     value = pastedKey,
@@ -147,39 +157,59 @@ fun NookHome(sessionStore: LoginSessionStore) {
 private fun WelcomeScreen(
     onCreateKey: () -> Unit,
     onPasteKey: () -> Unit,
+    isDarkTheme: Boolean,
+    onThemeToggle: () -> Unit,
 ) {
-    Column(screenModifier(), verticalArrangement = Arrangement.SpaceBetween) {
-        Column {
-            Spacer(Modifier.height(118.dp))
-            NookLogo()
-            Spacer(Modifier.height(42.dp))
-            Text("Nook", style = MaterialTheme.typography.displayLarge, fontSize = 68.sp)
-            Spacer(Modifier.height(44.dp))
-            Text(
-                "Private notes and checklists. Synced through Nostr relays, readable only with your key.",
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 25.sp,
-                lineHeight = 35.sp,
-            )
-        }
-        Column {
-            PrimaryButton("Create a new key", onCreateKey)
-            Spacer(Modifier.height(24.dp))
-            OutlinedButton(
-                onClick = onPasteKey,
-                modifier = Modifier.fillMaxWidth().height(72.dp),
-                shape = RoundedCornerShape(25.dp),
-            ) {
-                Text("I have a Nostr key", fontSize = 22.sp, fontWeight = FontWeight.SemiBold)
+    Box(screenModifier()) {
+        Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.SpaceBetween) {
+            Column {
+                Spacer(Modifier.height(124.dp))
+                NookLogo()
+                Spacer(Modifier.height(25.dp))
+                Text("Nook", style = MaterialTheme.typography.displayLarge, fontSize = 52.sp)
+                Spacer(Modifier.height(26.dp))
+                Text(
+                    "Private notes and checklists. Synced through Nostr relays, readable only with your key.",
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 18.sp,
+                    lineHeight = 27.sp,
+                )
             }
-            Spacer(Modifier.height(50.dp))
-            Text(
-                "Notes are encrypted on your device before they leave it.",
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 16.sp,
-            )
-            Spacer(Modifier.height(24.dp))
+            Column {
+                PrimaryButton("Create a new key", onCreateKey)
+                Spacer(Modifier.height(12.dp))
+                OutlinedButton(
+                    onClick = onPasteKey,
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(14.dp),
+                ) {
+                    Text("I have a Nostr key", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+                }
+                Text(
+                    "Sign in with a signer app",
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+                )
+                Spacer(Modifier.height(14.dp))
+                Text(
+                    "Notes are encrypted on your device before they leave it.",
+                    modifier = Modifier.fillMaxWidth(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 13.sp,
+                )
+                Spacer(Modifier.height(24.dp))
+            }
+        }
+        OutlinedButton(
+            onClick = onThemeToggle,
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp).testTag("theme_toggle"),
+            shape = RoundedCornerShape(18.dp),
+            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
+        ) {
+            Text(if (isDarkTheme) "☀ Light" else "☾ Dark", fontSize = 13.sp)
         }
     }
 }
@@ -301,7 +331,7 @@ private fun PrimaryButton(
     Button(
         onClick = onClick,
         modifier =
-            Modifier.fillMaxWidth().height(72.dp).then(
+            Modifier.fillMaxWidth().height(52.dp).then(
                 if (testTag ==
                     null
                 ) {
@@ -311,19 +341,19 @@ private fun PrimaryButton(
                 },
             ),
         enabled = enabled,
-        shape = RoundedCornerShape(25.dp),
+        shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
         contentPadding = PaddingValues(),
-    ) { Text(label, fontSize = 22.sp, fontWeight = FontWeight.SemiBold) }
+    ) { Text(label, fontSize = 17.sp, fontWeight = FontWeight.SemiBold) }
 }
 
 @Composable
 private fun screenModifier(): Modifier =
-    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 32.dp)
+    Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 28.dp)
 
 @Composable
 private fun NookLogo() {
-    Canvas(Modifier.size(128.dp)) {
+    Canvas(Modifier.size(64.dp)) {
         val px = this.density
 
         fun dp(value: Float) = value * px
@@ -331,36 +361,36 @@ private fun NookLogo() {
             Color(0xFF1E4D4A),
             cornerRadius =
                 androidx.compose.ui.geometry
-                    .CornerRadius(dp(28f)),
+                    .CornerRadius(dp(14f)),
         )
         val paper = Color(0xFFF6F1E7)
         drawRect(
             paper,
             androidx.compose.ui.geometry
-                .Offset(dp(34f), dp(29f)),
+                .Offset(dp(17f), dp(14.5f)),
             androidx.compose.ui.geometry
-                .Size(dp(60f), dp(75f)),
+                .Size(dp(30f), dp(37.5f)),
         )
         val fold =
             androidx.compose.ui.graphics.Path().apply {
-                moveTo(dp(76f), dp(29f))
-                lineTo(dp(94f), dp(47f))
-                lineTo(dp(76f), dp(47f))
+                moveTo(dp(38f), dp(14.5f))
+                lineTo(dp(47f), dp(23.5f))
+                lineTo(dp(38f), dp(23.5f))
                 close()
             }
         drawPath(fold, Color(0xFFCFC5AE), style = Fill)
         drawCircle(
             Color(0xFF1E4D4A),
-            dp(8f),
+            dp(4f),
             androidx.compose.ui.geometry
-                .Offset(dp(64f), dp(68f)),
+                .Offset(dp(32f), dp(34f)),
         )
         val keyhole =
             androidx.compose.ui.graphics.Path().apply {
-                moveTo(dp(59f), dp(73f))
-                lineTo(dp(69f), dp(73f))
-                lineTo(dp(72f), dp(92f))
-                lineTo(dp(56f), dp(92f))
+                moveTo(dp(29.5f), dp(36.5f))
+                lineTo(dp(34.5f), dp(36.5f))
+                lineTo(dp(36f), dp(46f))
+                lineTo(dp(28f), dp(46f))
                 close()
             }
         drawPath(keyhole, Color(0xFF1E4D4A), style = Fill)

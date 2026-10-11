@@ -136,3 +136,17 @@
   transport and iOS Darwin engine remain unchanged.
 - Run the two-device create/edit/delete relay check before release; iOS target
   tests remain unchecked on Windows.
+
+## Visual rework update (2026-10-12)
+
+- Reworked the Android Compose visuals around the supplied Nook mockups: the
+  paper/teal token set, typography hierarchy, Welcome composition, Notes cards,
+  relative list dates, and note/checklist editor proportions now follow the
+  reference design.
+- Existing key entry, backup, empty, search, and offline states retain their
+  behavior while inheriting the same visual system; the signer-app label is
+  present for mock parity but remains non-interactive because signer login is
+  outside v1 scope.
+- Light mode follows the supplied mocks and dark mode remains system-driven
+  with corresponding contrast-safe colors. Validate on a physical device at the
+  390x844 reference viewport as part of the outstanding release visual check.
