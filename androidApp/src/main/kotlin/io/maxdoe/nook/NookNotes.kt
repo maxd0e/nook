@@ -376,9 +376,9 @@ private fun ChecklistEditor(
 
     fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
         if (title == savedTitle && updatedItems == savedItems) return false
-        if (title.isBlank() && updatedItems.isEmpty()) return false
+        if (title.isBlank() && updatedItems.isEmpty() && checklistId == null) return false
         val id = checklistId ?: UUID.randomUUID().toString().also { checklistId = it }
-        if (existingId == null && existing == null) {
+        if (existingId == null && savedTitle.isBlank() && savedItems.isEmpty()) {
             repository.createChecklist(id, title, updatedItems)
         } else {
             repository.updateChecklist(id, title, updatedItems)
@@ -414,8 +414,9 @@ private fun ChecklistEditor(
                     if (pinned) "Unpin" else "Pin",
                     modifier =
                         Modifier.clickable {
-                            if (saveIfNeeded()) {
-                                checklistId?.let { id -> repository.setPinned(id, !pinned) }
+                            saveIfNeeded()
+                            checklistId?.let { id ->
+                                repository.setPinned(id, !pinned)
                                 pinned = !pinned
                             }
                         },
@@ -525,11 +526,7 @@ private fun ChecklistEditor(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable {
                         items = items.filterNot(ChecklistItem::done)
-                        checklistId?.let { id ->
-                            repository.clearCompletedChecklistItems(id)
-                            savedTitle = title
-                            savedItems = items
-                        } ?: saveIfNeeded(items)
+                        saveIfNeeded(items)
                     }.padding(vertical = 26.dp)
                     .testTag("clear_completed"),
             color = MaterialTheme.colorScheme.primary,
