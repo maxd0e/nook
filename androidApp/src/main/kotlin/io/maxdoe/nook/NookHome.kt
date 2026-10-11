@@ -2,6 +2,7 @@ package io.maxdoe.nook
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -63,9 +64,27 @@ fun NookHome(sessionStore: LoginSessionStore) {
     Surface(Modifier.fillMaxSize().testTag(HOME_ROOT_TEST_TAG), color = MaterialTheme.colorScheme.background) {
         when (val current = screen) {
             LoginScreen.Welcome -> WelcomeScreen({ controller.createKey(); updateScreen() }, { controller.showPasteKey(); updateScreen() })
-            LoginScreen.PasteKey -> PasteKeyScreen(pastedKey, pasteError, { pastedKey = it }, { controller.restore(); updateScreen() }, { controller.signIn(pastedKey); updateScreen() })
+            LoginScreen.PasteKey -> PasteKeyScreen(
+                value = pastedKey,
+                error = pasteError,
+                onValueChange = { pastedKey = it },
+                onBack = {
+                    pastedKey = ""
+                    controller.restore()
+                    updateScreen()
+                },
+                onContinue = {
+                    controller.signIn(pastedKey)
+                    if (controller.screen == LoginScreen.SignedIn) pastedKey = ""
+                    updateScreen()
+                },
+            )
             is LoginScreen.BackupKey -> BackupKeyScreen(current.nsec, current.savedConfirmed, { controller.setBackupConfirmed(it); updateScreen() }, { controller.completeBackup(); updateScreen() })
-            LoginScreen.SignedIn -> SignedInScreen { controller.logout(); updateScreen() }
+            LoginScreen.SignedIn -> SignedInScreen {
+                pastedKey = ""
+                controller.logout()
+                updateScreen()
+            }
         }
     }
 }
@@ -93,7 +112,12 @@ private fun WelcomeScreen(onCreateKey: () -> Unit, onPasteKey: () -> Unit) {
 @Composable
 private fun PasteKeyScreen(value: String, error: String?, onValueChange: (String) -> Unit, onBack: () -> Unit, onContinue: () -> Unit) {
     Column(screenModifier().testTag(LOGIN_ROOT_TEST_TAG)) {
-        Text("‹ Back", modifier = Modifier.padding(top = 24.dp), color = MaterialTheme.colorScheme.primary, fontSize = 17.sp)
+        Text(
+            "‹ Back",
+            modifier = Modifier.padding(top = 24.dp).clickable(onClick = onBack),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 17.sp,
+        )
         Spacer(Modifier.height(68.dp)); Text("Use your Nostr key", style = MaterialTheme.typography.displayLarge, fontSize = 38.sp); Spacer(Modifier.height(18.dp))
         Text("Paste your nsec private key. It stays encrypted on this device.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 18.sp, lineHeight = 27.sp)
         Spacer(Modifier.height(34.dp))

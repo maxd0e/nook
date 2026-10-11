@@ -68,5 +68,8 @@
   files are excluded from backups.
 - Focused login-controller unit tests and `:androidApp:compileDebugKotlin`
   pass. The Step 3 real-relay acceptance check remains pending.
+- The pasted-key UI now clears its in-memory value after successful sign-in,
+  when leaving the paste screen, and on logout; its Back control returns to
+  Welcome. `:androidApp:compileDebugKotlin` passes after this fix.
 - Before Step 5, fix the shared module Android publication: its Android AAR is
   empty although the module's Android compilation output contains the classes.
