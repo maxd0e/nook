@@ -1,4 +1,4 @@
-@file:Suppress("MaxLineLength")
+@file:Suppress("MaxLineLength", "TooManyFunctions")
 
 package io.maxdoe.nook
 
@@ -37,18 +37,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
 import io.maxdoe.nook.notes.ChecklistPayload
 import io.maxdoe.nook.notes.NookListItem
 import io.maxdoe.nook.notes.NotePayload
 import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import java.util.UUID
 
 private sealed interface NotesDestination {
@@ -63,9 +67,12 @@ private sealed interface NotesDestination {
     ) : NotesDestination
 }
 
+private val OfflineSyncStatus = MutableStateFlow(RelaySyncStatus.Offline)
+
 @Composable
 fun NookNotes(
     repository: NoteRepository,
+    syncStatus: StateFlow<RelaySyncStatus> = OfflineSyncStatus,
     onLogout: () -> Unit,
 ) {
     var destination by remember { mutableStateOf<NotesDestination>(NotesDestination.List) }
@@ -77,15 +84,16 @@ fun NookNotes(
                 onNewChecklist = { destination = NotesDestination.ChecklistEditor(null) },
                 onOpenNote = { destination = NotesDestination.Editor(it) },
                 onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it) },
+                syncStatus = syncStatus,
                 onLogout = onLogout,
             )
         is NotesDestination.Editor ->
-            NoteEditor(repository, current.noteId, onBack = {
+            NoteEditor(repository, current.noteId, syncStatus, onBack = {
                 destination =
                     NotesDestination.List
             })
         is NotesDestination.ChecklistEditor ->
-            ChecklistEditor(repository, current.checklistId, onBack = {
+            ChecklistEditor(repository, current.checklistId, syncStatus, onBack = {
                 destination = NotesDestination.List
             })
     }
@@ -99,6 +107,7 @@ private fun NotesList(
     onNewChecklist: () -> Unit,
     onOpenNote: (String) -> Unit,
     onOpenChecklist: (String) -> Unit,
+    syncStatus: StateFlow<RelaySyncStatus>,
     onLogout: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -107,24 +116,27 @@ private fun NotesList(
     val pinned = matching.filter { it.payload.isPinned() }
     val unpinned = matching - pinned.toSet()
     var addMenuExpanded by remember { mutableStateOf(false) }
+    val currentSyncStatus by syncStatus.collectAsState()
 
     Box(Modifier.fillMaxSize().testTag("notes_list")) {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+            modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Spacer(Modifier.height(34.dp))
+                Spacer(Modifier.height(24.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 68.sp)
+                    Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 36.sp)
                     Spacer(Modifier.weight(1f))
+                    SyncStatus(currentSyncStatus)
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         "Log out",
                         modifier = Modifier.clickable(onClick = onLogout),
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
                 OutlinedTextField(
                     value = query,
                     onValueChange = { query = it },
@@ -132,8 +144,11 @@ private fun NotesList(
                     singleLine = true,
                     leadingIcon = { Text("⌕", fontSize = 32.sp) },
                     placeholder = { Text("Search", fontSize = 28.sp) },
-                    shape = RoundedCornerShape(24.dp),
+                    shape = RoundedCornerShape(12.dp),
                 )
+            }
+            if (matching.isEmpty()) {
+                item { EmptyNotesState(hasQuery = query.isNotBlank()) }
             }
             if (pinned.isNotEmpty()) {
                 item { SectionTitle("Pinned") }
@@ -150,12 +165,12 @@ private fun NotesList(
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(40.dp)
-                    .size(96.dp)
+                    .padding(end = 20.dp, bottom = 28.dp)
+                    .size(56.dp)
                     .testTag("new_note"),
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
-        ) { Text("+", fontSize = 48.sp) }
+        ) { Text("+", fontSize = 28.sp) }
         DropdownMenu(
             expanded = addMenuExpanded,
             onDismissRequest = { addMenuExpanded = false },
@@ -176,6 +191,41 @@ private fun NotesList(
                 },
             )
         }
+    }
+}
+
+@Composable
+private fun SyncStatus(status: RelaySyncStatus) {
+    val (label, color) =
+        when (status) {
+            RelaySyncStatus.Synced -> "Synced" to Color(0xFF2E7D5B)
+            RelaySyncStatus.Syncing -> "Syncing" to MaterialTheme.colorScheme.primary
+            RelaySyncStatus.Offline -> "Offline" to MaterialTheme.colorScheme.onSurfaceVariant
+        }
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("sync_status")) {
+        Box(Modifier.size(8.dp).clip(CircleShape).background(color))
+        Spacer(Modifier.width(6.dp))
+        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+    }
+}
+
+@Composable
+private fun EmptyNotesState(hasQuery: Boolean) {
+    Column(
+        modifier = Modifier.fillMaxWidth().padding(top = 72.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            if (hasQuery) "No matching notes" else "Create your first note or checklist",
+            style = MaterialTheme.typography.displayLarge,
+            fontSize = 22.sp,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            if (hasQuery) "Try a different search." else "Use + to get started.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 15.sp,
+        )
     }
 }
 
@@ -258,6 +308,7 @@ private fun io.maxdoe.nook.notes.NookPayload.isPinned(): Boolean =
 private fun NoteEditor(
     repository: NoteRepository,
     existingId: String?,
+    syncStatus: StateFlow<RelaySyncStatus>,
     onBack: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -268,6 +319,7 @@ private fun NoteEditor(
     var pinned by remember(existingId) { mutableStateOf(existing?.pinned ?: false) }
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedBody by remember(existingId) { mutableStateOf(existing?.body.orEmpty()) }
+    val currentSyncStatus by syncStatus.collectAsState()
 
     fun saveIfNeeded() {
         if (title == savedTitle && body.text == savedBody) return
@@ -302,6 +354,8 @@ private fun NoteEditor(
                 fontSize = 52.sp,
             )
             Spacer(Modifier.weight(1f))
+            SyncStatus(currentSyncStatus)
+            Spacer(Modifier.width(20.dp))
             Text(
                 if (pinned) "Unpin" else "Pin",
                 modifier =
@@ -362,6 +416,7 @@ private fun NoteEditor(
 private fun ChecklistEditor(
     repository: NoteRepository,
     existingId: String?,
+    syncStatus: StateFlow<RelaySyncStatus>,
     onBack: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -373,6 +428,7 @@ private fun ChecklistEditor(
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedItems by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
     var newItemText by remember { mutableStateOf("") }
+    val currentSyncStatus by syncStatus.collectAsState()
 
     fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
         if (title == savedTitle && updatedItems == savedItems) return false
@@ -410,6 +466,8 @@ private fun ChecklistEditor(
                     fontSize = 52.sp,
                 )
                 Spacer(Modifier.weight(1f))
+                SyncStatus(currentSyncStatus)
+                Spacer(Modifier.width(20.dp))
                 Text(
                     if (pinned) "Unpin" else "Pin",
                     modifier =

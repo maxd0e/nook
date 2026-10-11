@@ -108,3 +108,17 @@
 - Shared/Android unit tests and Detekt pass; ktlint formatting was applied.
   Device UI verification, the final Android Lint/debug-assembly pass, and the
   Step 3 real-relay acceptance check remain pending.
+
+## Step 7 update (2026-10-11)
+
+- Added relay lifecycle status to the shared sync API and surfaced Synced,
+  Syncing, and Offline indicators in the Notes list, note editor, and checklist
+  editor. The list now has first-use and no-search-results states.
+- Refined list spacing to the documented design tokens and replaced the generic
+  Android launcher green with the Nook teal adaptive-icon background.
+- Added fake-relay coverage for the Offline-to-Syncing-to-Synced transition and
+  Compose coverage for empty/offline and no-results states. Shared/Android unit
+  tests, Detekt, ktlint, Android Lint, and debug assembly pass.
+- Release blocker: run the two-physical-device real-relay checklist and compare
+  every light/dark screen against the supplied mockups. The local Android SDK
+  has no `adb.exe`, so that manual check could not be started here.

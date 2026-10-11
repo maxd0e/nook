@@ -124,7 +124,7 @@ fun NookHome(sessionStore: LoginSessionStore) {
                 })
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
-                    NookNotes(session.repository) {
+                    NookNotes(session.repository, session.syncStatus) {
                         coroutineScope.launch {
                             session.close()
                             noteSession = null

@@ -103,6 +103,23 @@ class RelaySyncTest {
         }
 
     @Test
+    fun status_movesFromOfflineToSyncingThenSyncedAfterRelayCatchUp() =
+        runBlocking {
+            val repository = repository()
+            val relay = FakeRelayTransport(available = false)
+            val sync = sync(repository, relay)
+
+            assertEquals(RelaySyncStatus.Offline, sync.status.value)
+            relay.available = true
+            waitUntil { relay.connections.isNotEmpty() }
+            waitUntil { sync.status.value == RelaySyncStatus.Syncing }
+
+            relay.connections.single().emit(RelayMessage.EndOfStoredEvents("nook-fake"))
+            waitUntil { sync.status.value == RelaySyncStatus.Synced }
+            sync.stop()
+        }
+
+    @Test
     fun tombstoneRemovesNoteOnOtherDevice() =
         runBlocking {
             val firstRepository = repository()

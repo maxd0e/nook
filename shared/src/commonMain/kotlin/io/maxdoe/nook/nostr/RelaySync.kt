@@ -6,11 +6,20 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+
+enum class RelaySyncStatus {
+    Offline,
+    Syncing,
+    Synced,
+}
 
 class RelaySync(
     private val repository: NoteRepository,
@@ -22,9 +31,13 @@ class RelaySync(
     private val reconnectDelayMillis: Long = DEFAULT_RECONNECT_DELAY_MILLIS,
 ) {
     private val connections = mutableMapOf<String, RelayConnection>()
+    private val caughtUpRelays = mutableSetOf<String>()
     private val connectionMutex = Mutex()
+    private val mutableStatus = MutableStateFlow(RelaySyncStatus.Offline)
     private var rootJob: Job? = null
     private var publishJob: Job? = null
+
+    val status: StateFlow<RelaySyncStatus> = mutableStatus.asStateFlow()
 
     fun start() {
         if (rootJob != null) return
@@ -44,7 +57,11 @@ class RelaySync(
         publishJob = null
         val openConnections =
             connectionMutex.withLock {
-                connections.values.toList().also { connections.clear() }
+                connections.values.toList().also {
+                    connections.clear()
+                    caughtUpRelays.clear()
+                    updateStatusLocked()
+                }
             }
         openConnections.forEach { it.close() }
     }
@@ -53,7 +70,11 @@ class RelaySync(
         while (currentCoroutineContext().isActive) {
             runCatching {
                 val connection = transport.connect(url)
-                connectionMutex.withLock { connections[url] = connection }
+                connectionMutex.withLock {
+                    connections[url] = connection
+                    caughtUpRelays.remove(url)
+                    updateStatusLocked()
+                }
                 connection.send(
                     RelayCommand.Subscribe(
                         subscriptionId = subscriptionId(url),
@@ -61,7 +82,7 @@ class RelaySync(
                     ),
                 )
                 publishDirtyTo(connection)
-                connection.messages.collect(::handleMessage)
+                connection.messages.collect { message -> handleMessage(url, message) }
             }
             removeConnection(url)
             if (currentCoroutineContext().isActive) delay(reconnectDelayMillis)
@@ -69,6 +90,7 @@ class RelaySync(
     }
 
     private fun schedulePublish() {
+        updateStatus()
         publishJob?.cancel()
         publishJob =
             scope.launch {
@@ -86,19 +108,54 @@ class RelaySync(
         repository.dirtyEvents().forEach { event -> connection.send(RelayCommand.Publish(event)) }
     }
 
-    private fun handleMessage(message: RelayMessage) {
+    private fun handleMessage(
+        url: String,
+        message: RelayMessage,
+    ) {
         when (message) {
-            is RelayMessage.Event -> repository.receive(message.event)
-            is RelayMessage.Published -> if (message.accepted) repository.markPublished(message.eventId)
+            is RelayMessage.Event -> {
+                repository.receive(message.event)
+                updateStatus()
+            }
+            is RelayMessage.Published -> {
+                if (message.accepted) repository.markPublished(message.eventId)
+                updateStatus()
+            }
+            is RelayMessage.EndOfStoredEvents ->
+                scope.launch {
+                    connectionMutex.withLock {
+                        caughtUpRelays += url
+                        updateStatusLocked()
+                    }
+                }
             is RelayMessage.Closed,
-            is RelayMessage.EndOfStoredEvents,
             is RelayMessage.Notice,
             -> Unit
         }
     }
 
     private suspend fun removeConnection(url: String) {
-        connectionMutex.withLock { connections.remove(url) }?.close()
+        val disconnected =
+            connectionMutex.withLock {
+                caughtUpRelays.remove(url)
+                connections.remove(url).also { updateStatusLocked() }
+            }
+        disconnected?.close()
+    }
+
+    private fun updateStatus() {
+        scope.launch {
+            connectionMutex.withLock { updateStatusLocked() }
+        }
+    }
+
+    private fun updateStatusLocked() {
+        mutableStatus.value =
+            when {
+                connections.isEmpty() -> RelaySyncStatus.Offline
+                repository.dirtyEvents().isNotEmpty() || caughtUpRelays.isEmpty() -> RelaySyncStatus.Syncing
+                else -> RelaySyncStatus.Synced
+            }
     }
 
     private fun subscriptionId(url: String): String = "nook-${url.hashCode().toUInt().toString(16)}"

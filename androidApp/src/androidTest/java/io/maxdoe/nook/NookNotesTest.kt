@@ -9,10 +9,12 @@ import androidx.compose.ui.test.performTextInput
 import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.data.EncryptedEventStore
 import io.maxdoe.nook.data.StoredNostrEvent
+import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
 import io.maxdoe.nook.notes.EpochSecondsClock
 import io.maxdoe.nook.notes.NookEventCodec
 import io.maxdoe.nook.notes.NoteRepository
+import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Rule
 import org.junit.Test
 
@@ -74,6 +76,34 @@ class NookNotesTest {
         composeRule.onNodeWithTag("note_packing").performClick()
         composeRule.onNodeWithTag("checklist_toggle_passport").performClick()
         composeRule.onNodeWithText("COMPLETED 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun emptyAndOfflineListExplainsHowToStartAndShowsSyncState() {
+        val repository = repository()
+
+        composeRule.setContent {
+            NookTheme {
+                NookNotes(repository, MutableStateFlow(RelaySyncStatus.Offline), onLogout = {})
+            }
+        }
+
+        composeRule.onNodeWithText("Offline").assertIsDisplayed()
+        composeRule.onNodeWithText("Create your first note or checklist").assertIsDisplayed()
+    }
+
+    @Test
+    fun unmatchedSearchShowsNoResultsState() {
+        val repository = repository().also { it.createNote("garden", "Garden", "Plant seeds") }
+
+        composeRule.setContent {
+            NookTheme {
+                NookNotes(repository, MutableStateFlow(RelaySyncStatus.Synced), onLogout = {})
+            }
+        }
+
+        composeRule.onNodeWithTag("notes_search").performTextInput("passport")
+        composeRule.onNodeWithText("No matching notes").assertIsDisplayed()
     }
 
     private fun repository(): NoteRepository {
