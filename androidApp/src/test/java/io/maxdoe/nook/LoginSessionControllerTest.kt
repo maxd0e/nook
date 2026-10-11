@@ -12,7 +12,7 @@ class LoginSessionControllerTest {
         val store = FakeLoginSessionStore()
         val controller = LoginSessionController(store, FakeNsecKeyCodec)
 
-        controller.signIn(FakeNsecKeyCodec.validNsec)
+        controller.signIn(FakeNsecKeyCodec.VALID_NSEC)
 
         assertEquals(LoginScreen.SignedIn, controller.screen)
         assertTrue(store.hasValidKey())
@@ -49,7 +49,7 @@ class LoginSessionControllerTest {
 
     @Test
     fun logout_clearsStoredKeyAndLocalData() {
-        val store = FakeLoginSessionStore().also { it.save(FakeNsecKeyCodec.validNsec) }
+        val store = FakeLoginSessionStore().also { it.save(FakeNsecKeyCodec.VALID_NSEC) }
         val controller = LoginSessionController(store, FakeNsecKeyCodec)
 
         controller.logout()
@@ -64,7 +64,9 @@ class LoginSessionControllerTest {
         var cleared = false
             private set
 
-        override fun hasValidKey(): Boolean = nsec == FakeNsecKeyCodec.validNsec
+        override fun hasValidKey(): Boolean = nsec == FakeNsecKeyCodec.VALID_NSEC
+
+        override fun nsecOrNull(): String? = nsec
 
         override fun save(nsec: String) {
             this.nsec = nsec
@@ -77,10 +79,10 @@ class LoginSessionControllerTest {
     }
 
     private object FakeNsecKeyCodec : NsecKeyCodec {
-        const val validNsec = "nsec1valid"
+        const val VALID_NSEC = "nsec1valid"
 
-        override fun create(): String = validNsec
+        override fun create(): String = VALID_NSEC
 
-        override fun normalizeOrNull(value: String): String? = validNsec.takeIf { it == value }
+        override fun normalizeOrNull(value: String): String? = VALID_NSEC.takeIf { it == value }
     }
 }

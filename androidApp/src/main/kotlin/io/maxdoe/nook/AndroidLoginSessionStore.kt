@@ -15,10 +15,11 @@ class AndroidLoginSessionStore(
     private val appContext = context.applicationContext
     private val preferences = appContext.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
 
-    override fun hasValidKey(): Boolean = encryptedNsec()?.let(NostrNsecKeyCodec::normalizeOrNull) != null
+    override fun hasValidKey(): Boolean = nsecOrNull() != null
+
+    override fun nsecOrNull(): String? = encryptedNsec()?.let(NostrNsecKeyCodec::normalizeOrNull)
 
     override fun save(nsec: String) {
-        initializeDatabase()
         preferences.edit().putString(ENCRYPTED_NSEC_KEY, encrypt(nsec)).commit()
     }
 
@@ -26,14 +27,6 @@ class AndroidLoginSessionStore(
         preferences.edit().clear().commit()
         runCatching { keyStore().deleteEntry(KEY_ALIAS) }
         appContext.deleteDatabase(DATABASE_NAME)
-    }
-
-    private fun initializeDatabase() {
-        appContext.openOrCreateDatabase(DATABASE_NAME, Context.MODE_PRIVATE, null).use { database ->
-            database.execSQL(
-                "CREATE TABLE IF NOT EXISTS nook_event (id TEXT NOT NULL PRIMARY KEY, public_key TEXT NOT NULL, created_at INTEGER NOT NULL, kind INTEGER NOT NULL, tags TEXT NOT NULL, content TEXT NOT NULL, signature TEXT NOT NULL, d_tag TEXT NOT NULL, dirty INTEGER NOT NULL)",
-            )
-        }
     }
 
     private fun encryptedNsec(): String? =
@@ -59,17 +52,20 @@ class AndroidLoginSessionStore(
 
     private fun encryptionKey() =
         keyStore().getKey(KEY_ALIAS, null)
-            ?: KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE).apply {
-                init(
-                    KeyGenParameterSpec.Builder(
-                        KEY_ALIAS,
-                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
-                    ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-                        .setKeySize(256)
-                        .build(),
-                )
-            }.generateKey()
+            ?: KeyGenerator
+                .getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+                .apply {
+                    init(
+                        KeyGenParameterSpec
+                            .Builder(
+                                KEY_ALIAS,
+                                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
+                            ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                            .setKeySize(256)
+                            .build(),
+                    )
+                }.generateKey()
 
     private fun keyStore(): KeyStore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
 

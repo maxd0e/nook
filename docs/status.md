@@ -73,3 +73,19 @@
   Welcome. `:androidApp:compileDebugKotlin` passes after this fix.
 - Before Step 5, fix the shared module Android publication: its Android AAR is
   empty although the module's Android compilation output contains the classes.
+
+## Step 5 update (2026-10-11)
+
+- Added the signed-in Notes list and Note editor: live local search, pinned-first
+  ordering, encrypted autosave, permanent deletion, pinning, and markdown bold,
+  italic, heading, and bullet actions.
+- The active Android session now opens the encrypted SQLDelight store and starts
+  shared relay sync using the Keystore-protected key. It shuts down sync before
+  logout clears local data.
+- The generated shared Android AAR was checked and its nested `classes.jar`
+  contains the shared Kotlin classes; no packaging change was required.
+- Added repository mutation, markdown transformation, and Notes search UI tests.
+  Focused shared and Android unit tests compile and pass; device UI verification
+  remains pending.
+- Step 6 owns checklist creation and its editor; the Phase 5 add action creates
+  Notes only.

@@ -19,6 +19,7 @@ fun interface EpochSecondsClock {
     fun now(): Long
 }
 
+@Suppress("TooManyFunctions")
 class NoteRepository(
     private val store: EncryptedEventStore,
     private val codec: NookEventCodec,
@@ -63,6 +64,54 @@ class NoteRepository(
         )
         refresh()
         return event
+    }
+
+    fun createNote(
+        noteId: String,
+        title: String,
+        body: String,
+    ): SignedNostrEvent {
+        val createdAt = clock.now()
+        return save(
+            noteId,
+            NotePayload(
+                title = title,
+                body = body,
+                pinned = false,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+            ),
+        )
+    }
+
+    fun updateNote(
+        noteId: String,
+        title: String,
+        body: String,
+    ): SignedNostrEvent? {
+        val existing = notes.value.firstOrNull { it.id == noteId }?.payload as? NotePayload ?: return null
+        return save(noteId, existing.copy(title = title, body = body))
+    }
+
+    fun setPinned(
+        noteId: String,
+        pinned: Boolean,
+    ): SignedNostrEvent? {
+        val existing = notes.value.firstOrNull { it.id == noteId }?.payload ?: return null
+        val updated =
+            when (existing) {
+                is NotePayload -> existing.copy(pinned = pinned)
+                is ChecklistPayload -> existing.copy(pinned = pinned)
+                is TombstonePayload -> null
+            }
+        return updated?.let { payload ->
+            save(noteId, payload)
+        }
+    }
+
+    fun delete(noteId: String): SignedNostrEvent? {
+        if (notes.value.none { it.id == noteId }) return null
+        return save(noteId, TombstonePayload(updatedAt = clock.now()))
     }
 
     fun markPublished(eventId: String) {

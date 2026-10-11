@@ -109,3 +109,4 @@ One line per finished step: `YYYY-MM-DD  Step N  what was done`
 2026-10-10  Step 2  Added encrypted Nook payloads/events, SQLDelight storage, repository/search, and tests
 2026-10-11  Step 3  Added Ktor relay transport, subscription/publish/retry sync, and fake-relay tests; real-relay confirmation pending
 2026-10-11  Step 4  Added Android Keystore-protected nsec login, key backup confirmation, logout cleanup, and Welcome UI
+2026-10-11  Step 5  Added Notes list/editor, encrypted autosave, markdown toolbar, pin/delete, and Notes UI tests

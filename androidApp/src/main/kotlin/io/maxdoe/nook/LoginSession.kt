@@ -1,8 +1,8 @@
 package io.maxdoe.nook
 
+import com.vitorpamplona.quartz.nip01Core.crypto.KeyPair
 import com.vitorpamplona.quartz.nip19Bech32.bech32.bechToBytes
 import com.vitorpamplona.quartz.nip19Bech32.toNsec
-import com.vitorpamplona.quartz.nip01Core.crypto.KeyPair
 
 sealed interface LoginScreen {
     data object Welcome : LoginScreen
@@ -40,6 +40,8 @@ object NostrNsecKeyCodec : NsecKeyCodec {
 
 interface LoginSessionStore {
     fun hasValidKey(): Boolean
+
+    fun nsecOrNull(): String?
 
     fun save(nsec: String)
 

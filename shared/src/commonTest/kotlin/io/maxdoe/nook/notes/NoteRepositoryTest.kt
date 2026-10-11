@@ -49,6 +49,30 @@ class NoteRepositoryTest {
         assertEquals(50, store.all().maxOf { it.event.createdAt })
     }
 
+    @Test
+    fun noteCommands_createEditPinAndDeleteTheResolvedNote() {
+        val store = FakeEncryptedEventStore()
+        val repository = NoteRepository(store, codec, EpochSecondsClock { 100 })
+
+        repository.createNote("note", "First", "Draft")
+        repository.updateNote("note", "Final", "Body")
+        repository.setPinned("note", true)
+
+        val saved =
+            repository.notes
+                .value
+                .single()
+                .payload as NotePayload
+        assertEquals("Final", saved.title)
+        assertEquals("Body", saved.body)
+        assertTrue(saved.pinned)
+        assertTrue(store.all().all(StoredNostrEvent::dirty))
+
+        repository.delete("note")
+
+        assertTrue(repository.notes.value.isEmpty())
+    }
+
     private class FakeEncryptedEventStore : EncryptedEventStore {
         private val events = mutableListOf<StoredNostrEvent>()
 
