@@ -1,6 +1,7 @@
 package io.maxdoe.nook.nostr
 
 import io.maxdoe.nook.notes.NoteRepository
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin
@@ -32,12 +33,15 @@ class RelaySync(
 ) {
     private val connections = mutableMapOf<String, RelayConnection>()
     private val caughtUpRelays = mutableSetOf<String>()
+    private val relayHealth = mutableMapOf<String, RelayConnectionHealth>()
     private val connectionMutex = Mutex()
     private val mutableStatus = MutableStateFlow(RelaySyncStatus.Offline)
+    private val mutableHealth = MutableStateFlow(RelaySyncHealth())
     private var rootJob: Job? = null
     private var publishJob: Job? = null
 
     val status: StateFlow<RelaySyncStatus> = mutableStatus.asStateFlow()
+    val health: StateFlow<RelaySyncHealth> = mutableHealth.asStateFlow()
 
     fun start() {
         if (rootJob != null) return
@@ -60,6 +64,7 @@ class RelaySync(
                 connections.values.toList().also {
                     connections.clear()
                     caughtUpRelays.clear()
+                    relayHealth.clear()
                     updateStatusLocked()
                 }
             }
@@ -68,11 +73,14 @@ class RelaySync(
 
     private suspend fun runRelay(url: String) {
         while (currentCoroutineContext().isActive) {
-            runCatching {
+            setRelayConnecting(url)
+            var disconnectReason: RelayFailureReason? = RelayFailureReason.Network
+            try {
                 val connection = transport.connect(url)
                 connectionMutex.withLock {
                     connections[url] = connection
                     caughtUpRelays.remove(url)
+                    relayHealth[url] = RelayConnectionHealth(url, RelayConnectionStatus.Connected)
                     updateStatusLocked()
                 }
                 connection.send(
@@ -83,8 +91,14 @@ class RelaySync(
                 )
                 publishDirtyTo(connection)
                 connection.messages.collect { message -> handleMessage(url, message) }
+            } catch (exception: CancellationException) {
+                disconnectReason = null
+                throw exception
+            } catch (exception: Throwable) {
+                disconnectReason = failureReason(exception)
+            } finally {
+                removeConnection(url, disconnectReason)
             }
-            removeConnection(url)
             if (currentCoroutineContext().isActive) delay(reconnectDelayMillis)
         }
     }
@@ -108,7 +122,7 @@ class RelaySync(
         repository.dirtyEvents().forEach { event -> connection.send(RelayCommand.Publish(event)) }
     }
 
-    private fun handleMessage(
+    private suspend fun handleMessage(
         url: String,
         message: RelayMessage,
     ) {
@@ -133,17 +147,47 @@ class RelaySync(
                     // CLOSED ends the subscription but may leave the WebSocket itself open.
                     // Close it so the relay loop reconnects and subscribes again; otherwise an
                     // earlier EOSE would leave this relay incorrectly counted as caught up.
-                    removeConnection(url)
+                    removeConnection(url, RelayFailureReason.RelayRejected)
                 }
-            is RelayMessage.Notice,
-            -> Unit
+            is RelayMessage.Notice -> recordRelayNotice(url)
         }
     }
 
-    private suspend fun removeConnection(url: String) {
+    private suspend fun setRelayConnecting(url: String) {
+        connectionMutex.withLock {
+            relayHealth[url] =
+                RelayConnectionHealth(
+                    url = url,
+                    status = RelayConnectionStatus.Connecting,
+                    failure = relayHealth[url]?.failure,
+                )
+            updateStatusLocked()
+        }
+    }
+
+    private suspend fun recordRelayNotice(url: String) {
+        connectionMutex.withLock {
+            relayHealth[url] =
+                relayHealth[url]?.copy(failure = RelayFailureReason.RelayRejected)
+                    ?: RelayConnectionHealth(url, RelayConnectionStatus.Failed, RelayFailureReason.RelayRejected)
+            updateStatusLocked()
+        }
+    }
+
+    private suspend fun removeConnection(
+        url: String,
+        failure: RelayFailureReason? = null,
+    ) {
         val disconnected =
             connectionMutex.withLock {
                 caughtUpRelays.remove(url)
+                val existing = relayHealth[url]
+                relayHealth[url] =
+                    when {
+                        failure == null -> existing ?: RelayConnectionHealth(url, RelayConnectionStatus.Connecting)
+                        existing?.status == RelayConnectionStatus.Failed -> existing
+                        else -> RelayConnectionHealth(url, RelayConnectionStatus.Failed, failure)
+                    }
                 connections.remove(url).also { updateStatusLocked() }
             }
         disconnected?.close()
@@ -156,6 +200,7 @@ class RelaySync(
     }
 
     private fun updateStatusLocked() {
+        mutableHealth.value = RelaySyncHealth(relayHealth.values.sortedBy(RelayConnectionHealth::url))
         mutableStatus.value =
             when {
                 connections.isEmpty() -> RelaySyncStatus.Offline
@@ -165,6 +210,15 @@ class RelaySync(
     }
 
     private fun subscriptionId(url: String): String = "nook-${url.hashCode().toUInt().toString(16)}"
+
+    private fun failureReason(exception: Throwable): RelayFailureReason =
+        when {
+            exception.message.orEmpty().contains("ssl", ignoreCase = true) ||
+                exception.message.orEmpty().contains("tls", ignoreCase = true) ||
+                exception.message.orEmpty().contains("certificate", ignoreCase = true) ->
+                RelayFailureReason.SecureConnection
+            else -> RelayFailureReason.Network
+        }
 
     private companion object {
         const val NOOK_KIND = 30_078

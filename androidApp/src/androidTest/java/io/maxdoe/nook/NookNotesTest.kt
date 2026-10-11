@@ -9,6 +9,10 @@ import androidx.compose.ui.test.performTextInput
 import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.data.EncryptedEventStore
 import io.maxdoe.nook.data.StoredNostrEvent
+import io.maxdoe.nook.nostr.RelayConnectionHealth
+import io.maxdoe.nook.nostr.RelayConnectionStatus
+import io.maxdoe.nook.nostr.RelayFailureReason
+import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
 import io.maxdoe.nook.notes.EpochSecondsClock
@@ -88,7 +92,7 @@ class NookNotesTest {
             }
         }
 
-        composeRule.onNodeWithText("Offline").assertIsDisplayed()
+        composeRule.onNodeWithText("Offline — retrying").assertIsDisplayed()
         composeRule.onNodeWithText("Create your first note or checklist").assertIsDisplayed()
     }
 
@@ -104,6 +108,34 @@ class NookNotesTest {
 
         composeRule.onNodeWithTag("notes_search").performTextInput("passport")
         composeRule.onNodeWithText("No matching notes").assertIsDisplayed()
+    }
+
+    @Test
+    fun offlineListShowsSafeRelayFailureReason() {
+        val repository = repository()
+        val health =
+            RelaySyncHealth(
+                listOf(
+                    RelayConnectionHealth(
+                        "wss://relay.example",
+                        RelayConnectionStatus.Failed,
+                        RelayFailureReason.SecureConnection,
+                    ),
+                ),
+            )
+
+        composeRule.setContent {
+            NookTheme {
+                NookNotes(
+                    repository,
+                    MutableStateFlow(RelaySyncStatus.Offline),
+                    MutableStateFlow(health),
+                    onLogout = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Secure connection failed").assertIsDisplayed()
     }
 
     private fun repository(): NoteRepository {

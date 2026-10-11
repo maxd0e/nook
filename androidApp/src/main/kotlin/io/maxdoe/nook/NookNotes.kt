@@ -44,6 +44,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.maxdoe.nook.nostr.RelayFailureReason
+import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
 import io.maxdoe.nook.notes.ChecklistPayload
@@ -68,11 +70,13 @@ private sealed interface NotesDestination {
 }
 
 private val OfflineSyncStatus = MutableStateFlow(RelaySyncStatus.Offline)
+private val OfflineRelayHealth = MutableStateFlow(RelaySyncHealth())
 
 @Composable
 fun NookNotes(
     repository: NoteRepository,
     syncStatus: StateFlow<RelaySyncStatus> = OfflineSyncStatus,
+    syncHealth: StateFlow<RelaySyncHealth> = OfflineRelayHealth,
     onLogout: () -> Unit,
 ) {
     var destination by remember { mutableStateOf<NotesDestination>(NotesDestination.List) }
@@ -85,15 +89,16 @@ fun NookNotes(
                 onOpenNote = { destination = NotesDestination.Editor(it) },
                 onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it) },
                 syncStatus = syncStatus,
+                syncHealth = syncHealth,
                 onLogout = onLogout,
             )
         is NotesDestination.Editor ->
-            NoteEditor(repository, current.noteId, syncStatus, onBack = {
+            NoteEditor(repository, current.noteId, syncStatus, syncHealth, onBack = {
                 destination =
                     NotesDestination.List
             })
         is NotesDestination.ChecklistEditor ->
-            ChecklistEditor(repository, current.checklistId, syncStatus, onBack = {
+            ChecklistEditor(repository, current.checklistId, syncStatus, syncHealth, onBack = {
                 destination = NotesDestination.List
             })
     }
@@ -108,6 +113,7 @@ private fun NotesList(
     onOpenNote: (String) -> Unit,
     onOpenChecklist: (String) -> Unit,
     syncStatus: StateFlow<RelaySyncStatus>,
+    syncHealth: StateFlow<RelaySyncHealth>,
     onLogout: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -117,6 +123,7 @@ private fun NotesList(
     val unpinned = matching - pinned.toSet()
     var addMenuExpanded by remember { mutableStateOf(false) }
     val currentSyncStatus by syncStatus.collectAsState()
+    val currentSyncHealth by syncHealth.collectAsState()
 
     Box(Modifier.fillMaxSize().testTag("notes_list")) {
         LazyColumn(
@@ -128,7 +135,7 @@ private fun NotesList(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 36.sp)
                     Spacer(Modifier.weight(1f))
-                    SyncStatus(currentSyncStatus)
+                    SyncStatus(currentSyncStatus, currentSyncHealth)
                     Spacer(Modifier.width(12.dp))
                     Text(
                         "Log out",
@@ -195,19 +202,41 @@ private fun NotesList(
 }
 
 @Composable
-private fun SyncStatus(status: RelaySyncStatus) {
+private fun SyncStatus(
+    status: RelaySyncStatus,
+    health: RelaySyncHealth,
+) {
+    val failure = health.failure
     val (label, color) =
         when (status) {
             RelaySyncStatus.Synced -> "Synced" to Color(0xFF2E7D5B)
             RelaySyncStatus.Syncing -> "Syncing" to MaterialTheme.colorScheme.primary
-            RelaySyncStatus.Offline -> "Offline" to MaterialTheme.colorScheme.onSurfaceVariant
+            RelaySyncStatus.Offline ->
+                "Offline — retrying" to MaterialTheme.colorScheme.onSurfaceVariant
         }
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.testTag("sync_status")) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         Spacer(Modifier.width(6.dp))
-        Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+        Column {
+            Text(label, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+            if (status == RelaySyncStatus.Offline && failure != null) {
+                Text(
+                    failure.userMessage(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 10.sp,
+                )
+            }
+        }
     }
 }
+
+private fun RelayFailureReason.userMessage(): String =
+    when (this) {
+        RelayFailureReason.Network -> "Network unavailable"
+        RelayFailureReason.SecureConnection -> "Secure connection failed"
+        RelayFailureReason.RelayRejected -> "Relay rejected connection"
+        RelayFailureReason.Unknown -> "Connection failed"
+    }
 
 @Composable
 private fun EmptyNotesState(hasQuery: Boolean) {
@@ -309,6 +338,7 @@ private fun NoteEditor(
     repository: NoteRepository,
     existingId: String?,
     syncStatus: StateFlow<RelaySyncStatus>,
+    syncHealth: StateFlow<RelaySyncHealth>,
     onBack: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -320,6 +350,7 @@ private fun NoteEditor(
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedBody by remember(existingId) { mutableStateOf(existing?.body.orEmpty()) }
     val currentSyncStatus by syncStatus.collectAsState()
+    val currentSyncHealth by syncHealth.collectAsState()
 
     fun saveIfNeeded() {
         if (title == savedTitle && body.text == savedBody) return
@@ -354,7 +385,7 @@ private fun NoteEditor(
                 fontSize = 52.sp,
             )
             Spacer(Modifier.weight(1f))
-            SyncStatus(currentSyncStatus)
+            SyncStatus(currentSyncStatus, currentSyncHealth)
             Spacer(Modifier.width(20.dp))
             Text(
                 if (pinned) "Unpin" else "Pin",
@@ -417,6 +448,7 @@ private fun ChecklistEditor(
     repository: NoteRepository,
     existingId: String?,
     syncStatus: StateFlow<RelaySyncStatus>,
+    syncHealth: StateFlow<RelaySyncHealth>,
     onBack: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -429,6 +461,7 @@ private fun ChecklistEditor(
     var savedItems by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
     var newItemText by remember { mutableStateOf("") }
     val currentSyncStatus by syncStatus.collectAsState()
+    val currentSyncHealth by syncHealth.collectAsState()
 
     fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
         if (title == savedTitle && updatedItems == savedItems) return false
@@ -466,7 +499,7 @@ private fun ChecklistEditor(
                     fontSize = 52.sp,
                 )
                 Spacer(Modifier.weight(1f))
-                SyncStatus(currentSyncStatus)
+                SyncStatus(currentSyncStatus, currentSyncHealth)
                 Spacer(Modifier.width(20.dp))
                 Text(
                     if (pinned) "Unpin" else "Pin",

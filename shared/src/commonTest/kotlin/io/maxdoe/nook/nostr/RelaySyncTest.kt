@@ -120,6 +120,40 @@ class RelaySyncTest {
         }
 
     @Test
+    fun failedConnection_exposesSafeFailureAndRecoveryClearsIt() =
+        runBlocking {
+            val repository = repository()
+            val relay = FakeRelayTransport(available = false)
+            val sync = sync(repository, relay)
+
+            waitUntil {
+                sync.health.value.relays
+                    .singleOrNull()
+                    ?.failure == RelayFailureReason.Network
+            }
+            assertEquals(
+                RelayConnectionStatus.Failed,
+                sync.health.value.relays
+                    .single()
+                    .status,
+            )
+
+            relay.available = true
+            waitUntil {
+                sync.health.value.relays
+                    .singleOrNull()
+                    ?.status == RelayConnectionStatus.Connected
+            }
+            assertEquals(
+                null,
+                sync.health.value.relays
+                    .single()
+                    .failure,
+            )
+            sync.stop()
+        }
+
+    @Test
     fun closedSubscription_clearsSyncedStateAndReconnects() =
         runBlocking {
             val repository = repository()
@@ -268,7 +302,7 @@ class RelaySyncTest {
         val closeStarted = Channel<Unit>(1)
 
         override suspend fun connect(url: String): RelayConnection {
-            check(available) { "offline" }
+            if (!available) throw IllegalStateException("offline")
             return FakeRelayConnection(
                 closeGate = if (connections.isEmpty()) delayedFirstClose else null,
                 closeStarted = if (connections.isEmpty()) closeStarted else null,

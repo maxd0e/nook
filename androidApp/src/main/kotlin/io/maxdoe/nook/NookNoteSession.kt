@@ -8,6 +8,7 @@ import io.maxdoe.nook.data.SqlDelightEncryptedEventStore
 import io.maxdoe.nook.data.db.NookDatabase
 import io.maxdoe.nook.nostr.KtorRelayTransport
 import io.maxdoe.nook.nostr.RelaySync
+import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.nostr.createNookHttpClient
 import io.maxdoe.nook.notes.EpochSecondsClock
@@ -29,6 +30,7 @@ class NookNoteSession(
     private val driver = AndroidSqliteDriver(NookDatabase.Schema, context.applicationContext, DATABASE_NAME)
     private val client: HttpClient = createNookHttpClient()
     val repository: NoteRepository
+    val syncHealth: StateFlow<RelaySyncHealth>
     val syncStatus: StateFlow<RelaySyncStatus>
 
     private val sync: RelaySync
@@ -46,6 +48,7 @@ class NookNoteSession(
         repository.load()
         sync = RelaySync(repository, keyPair.publicKeyHex, KtorRelayTransport(client), scope)
         syncStatus = sync.status
+        syncHealth = sync.health
         sync.start()
     }
 

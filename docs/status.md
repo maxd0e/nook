@@ -122,3 +122,17 @@
 - Release blocker: run the two-physical-device real-relay checklist and compare
   every light/dark screen against the supplied mockups. The local Android SDK
   has no `adb.exe`, so that manual check could not be started here.
+
+## Relay transport update (2026-10-12)
+
+- Replaced Ktor's Android engine with Ktor's OkHttp engine because the Android
+  engine does not support WebSockets. The Android manifest now declares Internet
+  permission, and the OkHttp WebSocket client sends a 20-second keepalive ping.
+- Fixed the Compose session lifecycle that immediately closed a newly created
+  relay session after login or restore. The installed debug build now reaches
+  `Synced` on the connected Android phone against the configured relays.
+- Relay sync now exposes safe per-relay connection health for the UI and retries
+  disconnected relays without logging keys or note content. The common Ktor
+  transport and iOS Darwin engine remain unchanged.
+- Run the two-device create/edit/delete relay check before release; iOS target
+  tests remain unchecked on Windows.

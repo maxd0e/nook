@@ -77,7 +77,8 @@ fun NookHome(sessionStore: LoginSessionStore) {
     }
 
     DisposableEffect(noteSession) {
-        onDispose { coroutineScope.launch { noteSession?.close() } }
+        val sessionToClose = noteSession
+        onDispose { coroutineScope.launch { sessionToClose?.close() } }
     }
 
     Surface(Modifier.fillMaxSize().testTag(HOME_ROOT_TEST_TAG), color = MaterialTheme.colorScheme.background) {
@@ -124,7 +125,7 @@ fun NookHome(sessionStore: LoginSessionStore) {
                 })
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
-                    NookNotes(session.repository, session.syncStatus) {
+                    NookNotes(session.repository, session.syncStatus, session.syncHealth) {
                         coroutineScope.launch {
                             session.close()
                             noteSession = null
