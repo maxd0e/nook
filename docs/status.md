@@ -58,3 +58,15 @@
 4. Update this document after each completed feature milestone with what
    changed, what is next, validation performed, and any blockers or unresolved
    decisions.
+
+## Step 4 update (2026-10-11)
+
+- Completed Android nsec login, one-time new-key backup confirmation, and the
+  Welcome UI; successful login leads to a temporary signed-in placeholder.
+- Keys are AES-GCM encrypted with an Android Keystore key. Logout clears that
+  key, the session preference, and the local encrypted-event database; both
+  files are excluded from backups.
+- Focused login-controller unit tests and `:androidApp:compileDebugKotlin`
+  pass. The Step 3 real-relay acceptance check remains pending.
+- Before Step 5, fix the shared module Android publication: its Android AAR is
+  empty although the module's Android compilation output contains the classes.
