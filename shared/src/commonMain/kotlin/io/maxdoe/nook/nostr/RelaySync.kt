@@ -128,7 +128,13 @@ class RelaySync(
                         updateStatusLocked()
                     }
                 }
-            is RelayMessage.Closed,
+            is RelayMessage.Closed ->
+                scope.launch {
+                    // CLOSED ends the subscription but may leave the WebSocket itself open.
+                    // Close it so the relay loop reconnects and subscribes again; otherwise an
+                    // earlier EOSE would leave this relay incorrectly counted as caught up.
+                    removeConnection(url)
+                }
             is RelayMessage.Notice,
             -> Unit
         }

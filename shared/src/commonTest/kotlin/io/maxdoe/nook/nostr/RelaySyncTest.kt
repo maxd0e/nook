@@ -120,6 +120,24 @@ class RelaySyncTest {
         }
 
     @Test
+    fun closedSubscription_clearsSyncedStateAndReconnects() =
+        runBlocking {
+            val repository = repository()
+            val relay = FakeRelayTransport()
+            val sync = sync(repository, relay)
+
+            waitUntil { relay.connections.isNotEmpty() }
+            relay.connections.single().emit(RelayMessage.EndOfStoredEvents("nook-fake"))
+            waitUntil { sync.status.value == RelaySyncStatus.Synced }
+
+            relay.connections.single().emit(RelayMessage.Closed("nook-fake", "subscription closed"))
+            waitUntil { relay.connections.size == 2 }
+            assertEquals(RelaySyncStatus.Syncing, sync.status.value)
+            assertTrue(relay.connections.first().closed)
+            sync.stop()
+        }
+
+    @Test
     fun tombstoneRemovesNoteOnOtherDevice() =
         runBlocking {
             val firstRepository = repository()
