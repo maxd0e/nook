@@ -1,6 +1,7 @@
 package io.maxdoe.nook
 
 import android.app.Activity
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -58,7 +59,12 @@ class MainActivity : ComponentActivity() {
                             request.permissions?.let { putExtra("permissions", it) }
                         }
                     continuation.invokeOnCancellation { pendingSignerResult = null }
-                    signerLauncher.launch(intent)
+                    try {
+                        signerLauncher.launch(intent)
+                    } catch (_: ActivityNotFoundException) {
+                        pendingSignerResult = null
+                        continuation.resume(Nip55Result.Unavailable)
+                    }
                 }
         }
 

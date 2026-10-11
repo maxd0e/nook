@@ -68,7 +68,7 @@ class RelaySyncTest {
             }
             relay.connections.single().emit(RelayMessage.Event("other-device", saved))
 
-            waitUntil { secondRepository.repository.receive(saved) }
+            assertTrue(secondRepository.repository.receive(saved))
             assertEquals(
                 "Shared",
                 (

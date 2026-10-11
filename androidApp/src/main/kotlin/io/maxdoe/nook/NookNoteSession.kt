@@ -21,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
@@ -58,11 +59,13 @@ class NookNoteSession(
                 codec = NookEventCodec(signer),
                 clock = EpochSecondsClock { System.currentTimeMillis() / 1_000L },
             )
-        repository.load()
         sync = RelaySync(repository, signer.publicKey, KtorRelayTransport(client), scope)
         syncStatus = sync.status
         syncHealth = sync.health
-        sync.start()
+        scope.launch {
+            repository.load()
+            sync.start()
+        }
     }
 
     suspend fun close() {

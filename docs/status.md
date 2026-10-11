@@ -166,6 +166,16 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Signer reliability fix (2026-10-12)
+
+- Made Nook event encryption, signing, decryption, repository mutations, and
+  event refresh suspendable; external signer approval no longer blocks the
+  Compose main thread.
+- Missing signer activities now resolve as unavailable, and rejected or failed
+  signer save requests remain in the editor with a recoverable error message.
+- Shared and Android unit tests plus debug assembly pass. Real-device Amber
+  approval and rejection checks remain pending.
+
 ## v1.1 signer update (2026-10-12)
 
 - Added a portable `Signer` contract and `LocalKeySigner`; existing local-key

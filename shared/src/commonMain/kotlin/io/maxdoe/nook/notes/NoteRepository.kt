@@ -29,11 +29,11 @@ class NoteRepository(
 
     val notes: StateFlow<List<NookListItem>> = mutableNotes.asStateFlow()
 
-    fun load() {
+    suspend fun load() {
         refresh()
     }
 
-    fun receive(event: SignedNostrEvent): Boolean {
+    suspend fun receive(event: SignedNostrEvent): Boolean {
         val parsed = codec.parse(event) ?: return false
         store.insert(
             StoredNostrEvent(
@@ -46,7 +46,7 @@ class NoteRepository(
         return true
     }
 
-    fun save(
+    suspend fun save(
         noteId: String,
         payload: NookPayload,
     ): SignedNostrEvent {
@@ -66,7 +66,7 @@ class NoteRepository(
         return event
     }
 
-    fun createNote(
+    suspend fun createNote(
         noteId: String,
         title: String,
         body: String,
@@ -84,7 +84,7 @@ class NoteRepository(
         )
     }
 
-    fun updateNote(
+    suspend fun updateNote(
         noteId: String,
         title: String,
         body: String,
@@ -93,7 +93,7 @@ class NoteRepository(
         return save(noteId, existing.copy(title = title, body = body))
     }
 
-    fun createChecklist(
+    suspend fun createChecklist(
         noteId: String,
         title: String,
         items: List<ChecklistItem> = emptyList(),
@@ -111,7 +111,7 @@ class NoteRepository(
         )
     }
 
-    fun updateChecklist(
+    suspend fun updateChecklist(
         noteId: String,
         title: String,
         items: List<ChecklistItem>,
@@ -120,12 +120,12 @@ class NoteRepository(
         return save(noteId, existing.copy(title = title, items = items))
     }
 
-    fun clearCompletedChecklistItems(noteId: String): SignedNostrEvent? {
+    suspend fun clearCompletedChecklistItems(noteId: String): SignedNostrEvent? {
         val existing = notes.value.firstOrNull { it.id == noteId }?.payload as? ChecklistPayload ?: return null
         return save(noteId, existing.copy(items = existing.items.filterNot(ChecklistItem::done)))
     }
 
-    fun setPinned(
+    suspend fun setPinned(
         noteId: String,
         pinned: Boolean,
     ): SignedNostrEvent? {
@@ -141,12 +141,12 @@ class NoteRepository(
         }
     }
 
-    fun delete(noteId: String): SignedNostrEvent? {
+    suspend fun delete(noteId: String): SignedNostrEvent? {
         if (notes.value.none { it.id == noteId }) return null
         return save(noteId, TombstonePayload(updatedAt = clock.now()))
     }
 
-    fun markPublished(eventId: String) {
+    suspend fun markPublished(eventId: String) {
         store.markClean(eventId)
         refresh()
     }
@@ -160,12 +160,15 @@ class NoteRepository(
         return notes.value.filter { item -> item.payload.matches(normalizedQuery) }
     }
 
-    private fun refresh() {
+    private suspend fun refresh() {
         val storedEvents = store.all()
         val dirtyByEventId = storedEvents.associate { it.event.id to it.dirty }
+        val parsedEvents =
+            buildList {
+                storedEvents.forEach { stored -> codec.parse(stored.event)?.let(::add) }
+            }
         val resolved =
-            storedEvents
-                .mapNotNull { stored -> codec.parse(stored.event) }
+            parsedEvents
                 .groupBy(ParsedNookEvent::noteId)
                 .mapNotNull { (noteId, candidates) ->
                     val winner =
@@ -189,7 +192,10 @@ class NoteRepository(
         mutableNotes.value = resolved
     }
 
-    private fun parsedEvents(): List<ParsedNookEvent> = store.all().mapNotNull { codec.parse(it.event) }
+    private suspend fun parsedEvents(): List<ParsedNookEvent> =
+        buildList {
+            store.all().forEach { stored -> codec.parse(stored.event)?.let(::add) }
+        }
 }
 
 private fun NookPayload.isPinned(): Boolean =

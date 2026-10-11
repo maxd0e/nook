@@ -25,6 +25,11 @@ interface Signer {
     ): String?
 }
 
+/** A request the user can retry after an external signer declines or cannot complete it. */
+class SignerRequestException(
+    message: String,
+) : IllegalStateException(message)
+
 class LocalKeySigner(
     private val keyPair: NostrKeyPair,
 ) : Signer {

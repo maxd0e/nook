@@ -6,7 +6,6 @@ import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.SignedNostrEvent
 import io.maxdoe.nook.nostr.Signer
 import io.maxdoe.nook.nostr.UnsignedNostrEvent
-import kotlinx.coroutines.runBlocking
 
 data class ParsedNookEvent(
     val noteId: String,
@@ -19,29 +18,28 @@ class NookEventCodec(
 ) {
     constructor(keyPair: NostrKeyPair) : this(LocalKeySigner(keyPair))
 
-    fun build(
+    suspend fun build(
         noteId: String,
         payload: NookPayload,
         createdAt: Long,
     ): SignedNostrEvent {
         require(noteId.isNotBlank()) { "A Nook note ID is required." }
-        return runBlocking {
-            signer.signEvent(
+        return signer
+            .signEvent(
                 UnsignedNostrEvent(
                     createdAt = createdAt,
                     kind = NOOK_KIND,
                     tags = listOf(listOf(D_TAG, "$NOOK_PREFIX$noteId")),
                     content = signer.nip44Encrypt(NookPayloadJson.encode(payload)),
                 ),
-            )
-        }.also { signed ->
-            require(signed.publicKey == signer.publicKey && NostrEventSigner.verify(signed)) {
-                "Signer returned an invalid event."
+            ).also { signed ->
+                require(signed.publicKey == signer.publicKey && NostrEventSigner.verify(signed)) {
+                    "Signer returned an invalid event."
+                }
             }
-        }
     }
 
-    fun parse(event: SignedNostrEvent): ParsedNookEvent? {
+    suspend fun parse(event: SignedNostrEvent): ParsedNookEvent? {
         val signedEvent =
             event.takeIf {
                 it.kind == NOOK_KIND &&
@@ -56,7 +54,8 @@ class NookEventCodec(
             value
                 .takeIf { it.startsWith(NOOK_PREFIX) && it.length > NOOK_PREFIX.length }
                 ?.let { taggedNoteId ->
-                    runBlocking { signer.nip44Decrypt(signedEvent.content) }
+                    runCatching { signer.nip44Decrypt(signedEvent.content) }
+                        .getOrNull()
                         ?.let(NookPayloadJson::decode)
                         ?.let { payload ->
                             ParsedNookEvent(

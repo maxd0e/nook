@@ -36,6 +36,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +59,7 @@ import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -377,7 +379,7 @@ private fun relativeDate(epochSeconds: Long): String {
 }
 
 @Composable
-@Suppress("CyclomaticComplexMethod", "LongMethod")
+@Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
 private fun NoteEditor(
     repository: NoteRepository,
     existingId: String?,
@@ -393,21 +395,34 @@ private fun NoteEditor(
     var pinned by remember(existingId) { mutableStateOf(existing?.pinned ?: false) }
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedBody by remember(existingId) { mutableStateOf(existing?.body.orEmpty()) }
+    var saveError by remember(existingId) { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
 
-    fun saveIfNeeded() {
-        if (title == savedTitle && body.text == savedBody) return
-        if (title.isBlank() && body.text.isBlank()) return
+    suspend fun saveIfNeeded(): Boolean {
+        if (title == savedTitle && body.text == savedBody) return false
+        if (title.isBlank() && body.text.isBlank()) return false
         val id = noteId ?: UUID.randomUUID().toString().also { noteId = it }
-        if (existingId == null && savedTitle.isBlank() && savedBody.isBlank()) {
-            repository.createNote(id, title, body.text)
-            if (pinned) repository.setPinned(id, true)
-        } else {
-            repository.updateNote(id, title, body.text)
-        }
-        savedTitle = title
-        savedBody = body.text
+        return runCatching {
+            if (existingId == null && savedTitle.isBlank() && savedBody.isBlank()) {
+                repository.createNote(id, title, body.text)
+                if (pinned) repository.setPinned(id, true)
+            } else {
+                repository.updateNote(id, title, body.text)
+            }
+        }.fold(
+            onSuccess = {
+                savedTitle = title
+                savedBody = body.text
+                saveError = null
+                true
+            },
+            onFailure = {
+                saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                false
+            },
+        )
     }
 
     LaunchedEffect(title, body.text) {
@@ -422,8 +437,7 @@ private fun NoteEditor(
                 "‹",
                 modifier =
                     Modifier.clickable {
-                        saveIfNeeded()
-                        onBack()
+                        coroutineScope.launch { if (saveIfNeeded()) onBack() }
                     },
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 40.sp,
@@ -435,9 +449,17 @@ private fun NoteEditor(
                 if (pinned) "⌑" else "⌖",
                 modifier =
                     Modifier.clickable {
-                        saveIfNeeded()
-                        noteId?.let { id -> repository.setPinned(id, !pinned) }
-                        pinned = !pinned
+                        coroutineScope.launch {
+                            if (saveIfNeeded()) {
+                                runCatching {
+                                    noteId?.let { id -> repository.setPinned(id, !pinned) }
+                                }.onSuccess {
+                                    pinned = !pinned
+                                }.onFailure {
+                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                                }
+                            }
+                        }
                     },
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 25.sp,
@@ -447,14 +469,26 @@ private fun NoteEditor(
                 "⌫",
                 modifier =
                     Modifier.clickable {
-                        noteId?.let(repository::delete)
-                        onBack()
+                        coroutineScope.launch {
+                            runCatching { noteId?.let { repository.delete(it) } }
+                                .onSuccess { onBack() }
+                                .onFailure {
+                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                                }
+                        }
                     },
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 25.sp,
             )
         }
         Spacer(Modifier.height(12.dp))
+        saveError?.let {
+            Text(
+                it,
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.testTag("note_save_error"),
+            )
+        }
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
@@ -504,21 +538,33 @@ private fun ChecklistEditor(
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedItems by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
     var newItemText by remember { mutableStateOf("") }
+    var saveError by remember(existingId) { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
 
-    fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
+    suspend fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
         if (title == savedTitle && updatedItems == savedItems) return false
         if (title.isBlank() && updatedItems.isEmpty() && checklistId == null) return false
         val id = checklistId ?: UUID.randomUUID().toString().also { checklistId = it }
-        if (existingId == null && savedTitle.isBlank() && savedItems.isEmpty()) {
-            repository.createChecklist(id, title, updatedItems)
-        } else {
-            repository.updateChecklist(id, title, updatedItems)
-        }
-        savedTitle = title
-        savedItems = updatedItems
-        return true
+        return runCatching {
+            if (existingId == null && savedTitle.isBlank() && savedItems.isEmpty()) {
+                repository.createChecklist(id, title, updatedItems)
+            } else {
+                repository.updateChecklist(id, title, updatedItems)
+            }
+        }.fold(
+            onSuccess = {
+                savedTitle = title
+                savedItems = updatedItems
+                saveError = null
+                true
+            },
+            onFailure = {
+                saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                false
+            },
+        )
     }
 
     LaunchedEffect(title, items) {
@@ -536,8 +582,7 @@ private fun ChecklistEditor(
                     "‹",
                     modifier =
                         Modifier.clickable {
-                            saveIfNeeded()
-                            onBack()
+                            coroutineScope.launch { if (saveIfNeeded()) onBack() }
                         },
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 40.sp,
@@ -549,10 +594,16 @@ private fun ChecklistEditor(
                     if (pinned) "⌑" else "⌖",
                     modifier =
                         Modifier.clickable {
-                            saveIfNeeded()
-                            checklistId?.let { id ->
-                                repository.setPinned(id, !pinned)
-                                pinned = !pinned
+                            coroutineScope.launch {
+                                if (saveIfNeeded()) {
+                                    runCatching {
+                                        checklistId?.let { id -> repository.setPinned(id, !pinned) }
+                                    }.onSuccess {
+                                        pinned = !pinned
+                                    }.onFailure {
+                                        saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                                    }
+                                }
                             }
                         },
                     color = MaterialTheme.colorScheme.primary,
@@ -563,14 +614,22 @@ private fun ChecklistEditor(
                     "⌫",
                     modifier =
                         Modifier.clickable {
-                            checklistId?.let(repository::delete)
-                            onBack()
+                            coroutineScope.launch {
+                                runCatching { checklistId?.let { repository.delete(it) } }
+                                    .onSuccess { onBack() }
+                                    .onFailure {
+                                        saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                                    }
+                            }
                         },
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 25.sp,
                 )
             }
             Spacer(Modifier.height(12.dp))
+            saveError?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("checklist_save_error"))
+            }
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -595,14 +654,14 @@ private fun ChecklistEditor(
                     item = item,
                     onToggle = {
                         items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
-                        saveIfNeeded(items)
+                        coroutineScope.launch { saveIfNeeded(items) }
                     },
                     onChange = { text ->
                         items = items.map { if (it.id == item.id) it.copy(text = text) else it }
                     },
                     onDelete = {
                         items = items.filterNot { it.id == item.id }
-                        saveIfNeeded(items)
+                        coroutineScope.launch { saveIfNeeded(items) }
                     },
                 )
             }
@@ -626,7 +685,7 @@ private fun ChecklistEditor(
                                 if (text.isNotEmpty()) {
                                     items += ChecklistItem(UUID.randomUUID().toString(), text, false)
                                     newItemText = ""
-                                    saveIfNeeded(items)
+                                    coroutineScope.launch { saveIfNeeded(items) }
                                 }
                             }.testTag("checklist_add_button"),
                     color = MaterialTheme.colorScheme.primary,
@@ -640,14 +699,14 @@ private fun ChecklistEditor(
                         item = item,
                         onToggle = {
                             items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
-                            saveIfNeeded(items)
+                            coroutineScope.launch { saveIfNeeded(items) }
                         },
                         onChange = { text ->
                             items = items.map { if (it.id == item.id) it.copy(text = text) else it }
                         },
                         onDelete = {
                             items = items.filterNot { it.id == item.id }
-                            saveIfNeeded(items)
+                            coroutineScope.launch { saveIfNeeded(items) }
                         },
                     )
                 }
@@ -661,7 +720,7 @@ private fun ChecklistEditor(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .clickable {
                         items = items.filterNot(ChecklistItem::done)
-                        saveIfNeeded(items)
+                        coroutineScope.launch { saveIfNeeded(items) }
                     }.padding(vertical = 26.dp)
                     .testTag("clear_completed"),
             color = MaterialTheme.colorScheme.primary,

@@ -5,6 +5,7 @@ import android.net.Uri
 import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.SignedNostrEvent
 import io.maxdoe.nook.nostr.Signer
+import io.maxdoe.nook.nostr.SignerRequestException
 import io.maxdoe.nook.nostr.UnsignedNostrEvent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -59,7 +60,7 @@ class Nip55Signer(
         val result = request("sign_event", payload, null)
         val signed =
             (result.signedEvent ?: result.result).toSignedEvent()
-                ?: throw IllegalStateException("Signer returned a malformed event.")
+                ?: throw SignerRequestException("Signer returned a malformed event.")
         check(
             signed.publicKey == publicKey && NostrEventSigner.verify(signed),
         ) { "Signer returned an invalid signature." }
@@ -92,14 +93,19 @@ class Nip55Signer(
         val background = withContext(Dispatchers.IO) { query(type, payload, peerPublicKey) }
         val result =
             when (background) {
-                Nip55Result.Rejected -> throw IllegalStateException("Signer request was rejected.")
+                Nip55Result.Rejected -> throw SignerRequestException("Signer request was rejected.")
                 Nip55Result.Unavailable ->
-                    foregroundRequester.request(
-                        Nip55Request(type, payload, peerPublicKey, publicKey, signerPackage),
-                    )
+                    withContext(Dispatchers.Main.immediate) {
+                        foregroundRequester.request(
+                            Nip55Request(type, payload, peerPublicKey, publicKey, signerPackage),
+                        )
+                    }
                 else -> background
             }
-        return result as? Nip55Result.Success ?: throw IllegalStateException("Signer is unavailable.")
+        return result as? Nip55Result.Success
+            ?: throw SignerRequestException(
+                (result as? Nip55Result.Failed)?.message ?: "Signer is unavailable.",
+            )
     }
 
     private fun query(
