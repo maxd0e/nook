@@ -57,6 +57,7 @@ private const val LOGIN_ROOT_TEST_TAG = "login_root"
 @Composable
 fun NookHome(
     sessionStore: LoginSessionStore,
+    signerRequester: Nip55ForegroundRequester,
     isDarkTheme: Boolean = isSystemInDarkTheme(),
     onThemeToggle: () -> Unit = {},
 ) {
@@ -76,7 +77,7 @@ fun NookHome(
     LaunchedEffect(controller) {
         controller.restore()
         if (controller.screen == LoginScreen.SignedIn) {
-            noteSession = sessionStore.nsecOrNull()?.let { NookNoteSession(it, context) }
+            noteSession = sessionStore.credentialsOrNull()?.let { NookNoteSession(it, context, signerRequester) }
         }
         updateScreen()
     }
@@ -98,6 +99,10 @@ fun NookHome(
                         controller.showPasteKey()
                         updateScreen()
                     },
+                    onSigner = {
+                        controller.showSignerInfo()
+                        updateScreen()
+                    },
                     isDarkTheme = isDarkTheme,
                     onThemeToggle = onThemeToggle,
                 )
@@ -115,7 +120,8 @@ fun NookHome(
                         controller.signIn(pastedKey)
                         if (controller.screen == LoginScreen.SignedIn) {
                             pastedKey = ""
-                            noteSession = sessionStore.nsecOrNull()?.let { NookNoteSession(it, context) }
+                            noteSession =
+                                sessionStore.credentialsOrNull()?.let { NookNoteSession(it, context, signerRequester) }
                         }
                         updateScreen()
                     },
@@ -129,10 +135,53 @@ fun NookHome(
                     if (controller.screen ==
                         LoginScreen.SignedIn
                     ) {
-                        noteSession = sessionStore.nsecOrNull()?.let { NookNoteSession(it, context) }
+                        noteSession =
+                            sessionStore.credentialsOrNull()?.let { NookNoteSession(it, context, signerRequester) }
                     }
                     updateScreen()
                 })
+            LoginScreen.SignerInfo ->
+                SignerInfoScreen(
+                    onBack = {
+                        controller.restore()
+                        updateScreen()
+                    },
+                    onContinue = {
+                        controller.beginSignerPairing()
+                        updateScreen()
+                        coroutineScope.launch {
+                            val result =
+                                signerRequester.request(
+                                    Nip55Request(type = "get_public_key", permissions = NIP55_PERMISSIONS),
+                                )
+                            when (result) {
+                                is Nip55Result.Success -> {
+                                    controller.completeSignerPairing(
+                                        result.result.lowercase(),
+                                        result.packageName.orEmpty(),
+                                    )
+                                    if (controller.screen == LoginScreen.SignedIn) {
+                                        noteSession =
+                                            sessionStore.credentialsOrNull()?.let {
+                                                NookNoteSession(it, context, signerRequester)
+                                            }
+                                    }
+                                }
+                                Nip55Result.Rejected -> controller.signerPairingFailed("Signer pairing was cancelled.")
+                                Nip55Result.Unavailable ->
+                                    controller.signerPairingFailed(
+                                        "No signer app is installed. Install one and try again.",
+                                    )
+                                is Nip55Result.Failed ->
+                                    controller.signerPairingFailed(
+                                        "Signer pairing failed. Try again.",
+                                    )
+                            }
+                            updateScreen()
+                        }
+                    },
+                )
+            LoginScreen.PairingSigner -> SignerPairingScreen()
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
                     NookNotes(session.repository, session.syncStatus, session.syncHealth) {
@@ -157,6 +206,7 @@ fun NookHome(
 private fun WelcomeScreen(
     onCreateKey: () -> Unit,
     onPasteKey: () -> Unit,
+    onSigner: () -> Unit,
     isDarkTheme: Boolean,
     onThemeToggle: () -> Unit,
 ) {
@@ -187,8 +237,8 @@ private fun WelcomeScreen(
                 }
                 Text(
                     "Sign in with a signer app",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 22.dp),
-                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f),
+                    modifier = Modifier.fillMaxWidth().clickable(onClick = onSigner).padding(vertical = 22.dp),
+                    color = MaterialTheme.colorScheme.primary,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
@@ -213,6 +263,48 @@ private fun WelcomeScreen(
         }
     }
 }
+
+@Composable
+private fun SignerInfoScreen(
+    onBack: () -> Unit,
+    onContinue: () -> Unit,
+) {
+    Column(screenModifier().testTag(LOGIN_ROOT_TEST_TAG)) {
+        Text(
+            "‹ Back",
+            Modifier.padding(top = 24.dp).clickable(onClick = onBack),
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.height(68.dp))
+        Text("Use a signer app", style = MaterialTheme.typography.displayLarge, fontSize = 38.sp)
+        Spacer(Modifier.height(18.dp))
+        Text(
+            "Your key stays in your signer app. Choose to remember the permissions there, so Nook can sync quietly.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 18.sp,
+            lineHeight = 27.sp,
+        )
+        Spacer(Modifier.weight(1f))
+        PrimaryButton("Choose signer app", onContinue, "signer_continue")
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+private fun SignerPairingScreen() {
+    Column(
+        screenModifier(),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("Waiting for signer", style = MaterialTheme.typography.displayLarge, fontSize = 32.sp)
+        Spacer(Modifier.height(12.dp))
+        Text("Approve the account in your signer app.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+private const val NIP55_PERMISSIONS =
+    "[{\"type\":\"get_public_key\"},{\"type\":\"sign_event\",\"kind\":30078},{\"type\":\"nip44_encrypt\"},{\"type\":\"nip44_decrypt\"}]"
 
 @Composable
 private fun PasteKeyScreen(

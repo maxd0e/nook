@@ -150,3 +150,33 @@
 - Light mode follows the supplied mocks and dark mode remains system-driven
   with corresponding contrast-safe colors. Validate on a physical device at the
   390x844 reference viewport as part of the outstanding release visual check.
+
+## v1.1 signer update (2026-10-12)
+
+- Added a portable `Signer` contract and `LocalKeySigner`; existing local-key
+  encryption/signing now runs through that boundary.
+- Added Android NIP-55 pairing and signer-session persistence. Signer mode
+  stores only the paired public key and signer package, never an nsec.
+- The Welcome signer action now explains pairing, requests only the Nook
+  permissions, and handles cancellation, missing signers, and malformed
+  pairing results without storing a session.
+- Added the NIP-55 manifest query, ContentResolver daily-use transport with
+  foreground fallback, result validation, and focused local-signer/login tests.
+- Remaining: exercise the Amber real-device checklist, including remembered
+  permissions, revoked permissions, unavailable signer recovery, and
+  cross-device relay verification.
+
+## v1.1 signer update (2026-10-12)
+
+- Added a portable `Signer` contract and `LocalKeySigner`; existing local-key
+  encryption/signing now runs through that boundary.
+- Added Android NIP-55 pairing and signer-session persistence. Signer mode
+  stores only the paired public key and signer package, never an nsec.
+- The Welcome signer action now explains pairing, requests only the Nook
+  permissions, and handles cancellation, missing signers, and malformed
+  pairing results without storing a session.
+- Added the NIP-55 manifest query, ContentResolver daily-use transport with
+  foreground fallback, result validation, and focused local-signer/login tests.
+- Remaining: exercise the Amber real-device checklist, including remembered
+  permissions, revoked permissions, unavailable signer recovery, and
+  cross-device relay verification.

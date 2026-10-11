@@ -19,8 +19,32 @@ class AndroidLoginSessionStore(
 
     override fun nsecOrNull(): String? = encryptedNsec()?.let(NostrNsecKeyCodec::normalizeOrNull)
 
+    override fun credentialsOrNull(): LoginCredentials? =
+        nsecOrNull()?.let(LoginCredentials::LocalKey)
+            ?: preferences
+                .getString(SIGNER_PUBLIC_KEY, null)
+                ?.takeIf { it.matches(Regex("[0-9a-f]{64}")) }
+                ?.let { publicKey ->
+                    preferences
+                        .getString(SIGNER_PACKAGE, null)
+                        ?.takeIf(String::isNotBlank)
+                        ?.let { LoginCredentials.ExternalSigner(publicKey, it) }
+                }
+
     override fun save(nsec: String) {
         preferences.edit().putString(ENCRYPTED_NSEC_KEY, encrypt(nsec)).commit()
+    }
+
+    override fun saveSigner(
+        publicKey: String,
+        packageName: String,
+    ) {
+        preferences
+            .edit()
+            .remove(ENCRYPTED_NSEC_KEY)
+            .putString(SIGNER_PUBLIC_KEY, publicKey)
+            .putString(SIGNER_PACKAGE, packageName)
+            .commit()
     }
 
     override fun clear() {
@@ -73,6 +97,8 @@ class AndroidLoginSessionStore(
         const val ANDROID_KEYSTORE = "AndroidKeyStore"
         const val DATABASE_NAME = "nook.db"
         const val ENCRYPTED_NSEC_KEY = "encrypted_nsec"
+        const val SIGNER_PACKAGE = "signer_package"
+        const val SIGNER_PUBLIC_KEY = "signer_public_key"
         const val KEY_ALIAS = "io.maxdoe.nook.login_key"
         const val PREFERENCES_NAME = "nook_session"
         const val TRANSFORMATION = "AES/GCM/NoPadding"

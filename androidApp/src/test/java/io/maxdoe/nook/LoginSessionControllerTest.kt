@@ -59,8 +59,22 @@ class LoginSessionControllerTest {
         assertTrue(store.cleared)
     }
 
+    @Test
+    fun signerPairing_savesOnlyPublicPairingAndShowsSignedIn() {
+        val store = FakeLoginSessionStore()
+        val controller = LoginSessionController(store, FakeNsecKeyCodec)
+        val publicKey = "a".repeat(64)
+
+        controller.completeSignerPairing(publicKey, "com.example.signer")
+
+        assertEquals(LoginScreen.SignedIn, controller.screen)
+        assertEquals(LoginCredentials.ExternalSigner(publicKey, "com.example.signer"), store.credentialsOrNull())
+        assertNull(store.nsecOrNull())
+    }
+
     private class FakeLoginSessionStore : LoginSessionStore {
         private var nsec: String? = null
+        private var signer: LoginCredentials.ExternalSigner? = null
         var cleared = false
             private set
 
@@ -68,12 +82,23 @@ class LoginSessionControllerTest {
 
         override fun nsecOrNull(): String? = nsec
 
+        override fun credentialsOrNull(): LoginCredentials? = signer ?: nsec?.let(LoginCredentials::LocalKey)
+
         override fun save(nsec: String) {
             this.nsec = nsec
         }
 
+        override fun saveSigner(
+            publicKey: String,
+            packageName: String,
+        ) {
+            nsec = null
+            signer = LoginCredentials.ExternalSigner(publicKey, packageName)
+        }
+
         override fun clear() {
             nsec = null
+            signer = null
             cleared = true
         }
     }

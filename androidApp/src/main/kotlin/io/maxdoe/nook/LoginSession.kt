@@ -15,6 +15,21 @@ sealed interface LoginScreen {
     ) : LoginScreen
 
     data object SignedIn : LoginScreen
+
+    data object SignerInfo : LoginScreen
+
+    data object PairingSigner : LoginScreen
+}
+
+sealed interface LoginCredentials {
+    data class LocalKey(
+        val nsec: String,
+    ) : LoginCredentials
+
+    data class ExternalSigner(
+        val publicKey: String,
+        val packageName: String,
+    ) : LoginCredentials
 }
 
 interface NsecKeyCodec {
@@ -46,6 +61,13 @@ interface LoginSessionStore {
     fun save(nsec: String)
 
     fun clear()
+
+    fun credentialsOrNull(): LoginCredentials? = nsecOrNull()?.let(LoginCredentials::LocalKey)
+
+    fun saveSigner(
+        publicKey: String,
+        packageName: String,
+    ) = Unit
 }
 
 class LoginSessionController(
@@ -59,7 +81,7 @@ class LoginSessionController(
         private set
 
     fun restore() {
-        screen = if (store.hasValidKey()) LoginScreen.SignedIn else LoginScreen.Welcome
+        screen = if (store.credentialsOrNull() != null) LoginScreen.SignedIn else LoginScreen.Welcome
     }
 
     fun showPasteKey() {
@@ -69,6 +91,33 @@ class LoginSessionController(
 
     fun createKey() {
         screen = LoginScreen.BackupKey(keyCodec.create())
+    }
+
+    fun showSignerInfo() {
+        pasteError = null
+        screen = LoginScreen.SignerInfo
+    }
+
+    fun beginSignerPairing() {
+        screen = LoginScreen.PairingSigner
+    }
+
+    fun completeSignerPairing(
+        publicKey: String,
+        packageName: String,
+    ) {
+        if (!publicKey.matches(Regex("[0-9a-f]{64}")) || packageName.isBlank()) {
+            pasteError = "The signer returned an invalid account."
+            screen = LoginScreen.Welcome
+            return
+        }
+        store.saveSigner(publicKey, packageName)
+        screen = LoginScreen.SignedIn
+    }
+
+    fun signerPairingFailed(message: String) {
+        pasteError = message
+        screen = LoginScreen.Welcome
     }
 
     fun setBackupConfirmed(confirmed: Boolean) {

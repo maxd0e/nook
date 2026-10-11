@@ -7,9 +7,11 @@ import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.data.SqlDelightEncryptedEventStore
 import io.maxdoe.nook.data.db.NookDatabase
 import io.maxdoe.nook.nostr.KtorRelayTransport
+import io.maxdoe.nook.nostr.LocalKeySigner
 import io.maxdoe.nook.nostr.RelaySync
 import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
+import io.maxdoe.nook.nostr.Signer
 import io.maxdoe.nook.nostr.createNookHttpClient
 import io.maxdoe.nook.notes.EpochSecondsClock
 import io.maxdoe.nook.notes.NookEventCodec
@@ -23,8 +25,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
 class NookNoteSession(
-    nsec: String,
+    credentials: LoginCredentials,
     context: Context,
+    signerRequester: Nip55ForegroundRequester,
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val driver = AndroidSqliteDriver(NookDatabase.Schema, context.applicationContext, DATABASE_NAME)
@@ -38,15 +41,25 @@ class NookNoteSession(
     private var closed = false
 
     init {
-        val keyPair = requireNotNull(NostrKeyPair.fromNsec(nsec))
+        val signer: Signer =
+            when (credentials) {
+                is LoginCredentials.LocalKey -> LocalKeySigner(requireNotNull(NostrKeyPair.fromNsec(credentials.nsec)))
+                is LoginCredentials.ExternalSigner ->
+                    Nip55Signer(
+                        context.applicationContext,
+                        credentials.publicKey,
+                        credentials.packageName,
+                        signerRequester,
+                    )
+            }
         repository =
             NoteRepository(
                 store = SqlDelightEncryptedEventStore(driver),
-                codec = NookEventCodec(keyPair),
+                codec = NookEventCodec(signer),
                 clock = EpochSecondsClock { System.currentTimeMillis() / 1_000L },
             )
         repository.load()
-        sync = RelaySync(repository, keyPair.publicKeyHex, KtorRelayTransport(client), scope)
+        sync = RelaySync(repository, signer.publicKey, KtorRelayTransport(client), scope)
         syncStatus = sync.status
         syncHealth = sync.health
         sync.start()
