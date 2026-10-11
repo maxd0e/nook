@@ -21,6 +21,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,8 +40,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.maxdoe.nook.notes.ChecklistItem
+import io.maxdoe.nook.notes.ChecklistPayload
 import io.maxdoe.nook.notes.NookListItem
 import io.maxdoe.nook.notes.NotePayload
 import io.maxdoe.nook.notes.NoteRepository
@@ -52,6 +57,10 @@ private sealed interface NotesDestination {
     data class Editor(
         val noteId: String?,
     ) : NotesDestination
+
+    data class ChecklistEditor(
+        val checklistId: String?,
+    ) : NotesDestination
 }
 
 @Composable
@@ -62,30 +71,42 @@ fun NookNotes(
     var destination by remember { mutableStateOf<NotesDestination>(NotesDestination.List) }
     when (val current = destination) {
         NotesDestination.List ->
-            NotesList(repository, onNewNote = { destination = NotesDestination.Editor(null) }, onOpen = {
-                destination =
-                    NotesDestination.Editor(it)
-            }, onLogout = onLogout)
+            NotesList(
+                repository = repository,
+                onNewNote = { destination = NotesDestination.Editor(null) },
+                onNewChecklist = { destination = NotesDestination.ChecklistEditor(null) },
+                onOpenNote = { destination = NotesDestination.Editor(it) },
+                onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it) },
+                onLogout = onLogout,
+            )
         is NotesDestination.Editor ->
             NoteEditor(repository, current.noteId, onBack = {
                 destination =
                     NotesDestination.List
             })
+        is NotesDestination.ChecklistEditor ->
+            ChecklistEditor(repository, current.checklistId, onBack = {
+                destination = NotesDestination.List
+            })
     }
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun NotesList(
     repository: NoteRepository,
     onNewNote: () -> Unit,
-    onOpen: (String) -> Unit,
+    onNewChecklist: () -> Unit,
+    onOpenNote: (String) -> Unit,
+    onOpenChecklist: (String) -> Unit,
     onLogout: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
     var query by remember { mutableStateOf("") }
     val matching = remember(notes, query) { repository.search(query) }
-    val pinned = matching.filter { (it.payload as? NotePayload)?.pinned == true }
+    val pinned = matching.filter { it.payload.isPinned() }
     val unpinned = matching - pinned.toSet()
+    var addMenuExpanded by remember { mutableStateOf(false) }
 
     Box(Modifier.fillMaxSize().testTag("notes_list")) {
         LazyColumn(
@@ -116,16 +137,16 @@ private fun NotesList(
             }
             if (pinned.isNotEmpty()) {
                 item { SectionTitle("Pinned") }
-                items(pinned, key = NookListItem::id) { NoteCard(it, onOpen) }
+                items(pinned, key = NookListItem::id) { NookCard(it, onOpenNote, onOpenChecklist) }
             }
             if (unpinned.isNotEmpty()) {
                 item { SectionTitle(if (pinned.isEmpty()) "All notes" else "All notes") }
-                items(unpinned, key = NookListItem::id) { NoteCard(it, onOpen) }
+                items(unpinned, key = NookListItem::id) { NookCard(it, onOpenNote, onOpenChecklist) }
             }
             item { Spacer(Modifier.height(110.dp)) }
         }
         FloatingActionButton(
-            onClick = onNewNote,
+            onClick = { addMenuExpanded = true },
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
@@ -135,6 +156,26 @@ private fun NotesList(
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primary,
         ) { Text("+", fontSize = 48.sp) }
+        DropdownMenu(
+            expanded = addMenuExpanded,
+            onDismissRequest = { addMenuExpanded = false },
+            modifier = Modifier.testTag("new_item_menu"),
+        ) {
+            DropdownMenuItem(
+                text = { Text("Note") },
+                onClick = {
+                    addMenuExpanded = false
+                    onNewNote()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text("Checklist") },
+                onClick = {
+                    addMenuExpanded = false
+                    onNewChecklist()
+                },
+            )
+        }
     }
 }
 
@@ -149,30 +190,68 @@ private fun SectionTitle(label: String) {
 }
 
 @Composable
-private fun NoteCard(
+private fun NookCard(
     item: NookListItem,
-    onOpen: (String) -> Unit,
+    onOpenNote: (String) -> Unit,
+    onOpenChecklist: (String) -> Unit,
 ) {
-    val note = item.payload as? NotePayload ?: return
     Card(
-        modifier = Modifier.fillMaxWidth().clickable { onOpen(item.id) }.testTag("note_${item.id}"),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable {
+                    when (item.payload) {
+                        is NotePayload -> onOpenNote(item.id)
+                        is ChecklistPayload -> onOpenChecklist(item.id)
+                        else -> Unit
+                    }
+                }.testTag("note_${item.id}"),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
         Column(Modifier.padding(horizontal = 34.dp, vertical = 26.dp)) {
-            Text(note.title.ifBlank { "Untitled" }, style = MaterialTheme.typography.displayLarge, fontSize = 38.sp)
-            if (note.body.isNotBlank()) {
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    note.body.replace(Regex("[#*_`>-]"), "").trim(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 22.sp,
-                    maxLines = 2,
-                )
+            when (val payload = item.payload) {
+                is NotePayload -> {
+                    Text(
+                        payload.title.ifBlank { "Untitled" },
+                        style = MaterialTheme.typography.displayLarge,
+                        fontSize = 38.sp,
+                    )
+                    if (payload.body.isNotBlank()) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(
+                            payload.body.replace(Regex("[#*_`>-]"), "").trim(),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 22.sp,
+                            maxLines = 2,
+                        )
+                    }
+                }
+                is ChecklistPayload -> {
+                    Text(
+                        payload.title.ifBlank { "Untitled checklist" },
+                        style = MaterialTheme.typography.displayLarge,
+                        fontSize = 38.sp,
+                    )
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "${payload.items.count(ChecklistItem::done)} of ${payload.items.size} done",
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        fontSize = 22.sp,
+                    )
+                }
+                is io.maxdoe.nook.notes.TombstonePayload -> Unit
             }
         }
     }
 }
+
+private fun io.maxdoe.nook.notes.NookPayload.isPinned(): Boolean =
+    when (this) {
+        is NotePayload -> pinned
+        is ChecklistPayload -> pinned
+        is io.maxdoe.nook.notes.TombstonePayload -> false
+    }
 
 @Composable
 @Suppress("CyclomaticComplexMethod", "LongMethod")
@@ -274,6 +353,226 @@ private fun NoteEditor(
             onItalic = { body = toggleInlineMarkdown(body, "_") },
             onHeading = { body = insertHeading(body) },
             onBullet = { body = insertBullet(body) },
+        )
+    }
+}
+
+@Composable
+@Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
+private fun ChecklistEditor(
+    repository: NoteRepository,
+    existingId: String?,
+    onBack: () -> Unit,
+) {
+    val notes by repository.notes.collectAsState()
+    val existing = notes.firstOrNull { it.id == existingId }?.payload as? ChecklistPayload
+    var checklistId by remember(existingId) { mutableStateOf(existingId) }
+    var title by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
+    var items by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
+    var pinned by remember(existingId) { mutableStateOf(existing?.pinned ?: false) }
+    var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
+    var savedItems by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
+    var newItemText by remember { mutableStateOf("") }
+
+    fun saveIfNeeded(updatedItems: List<ChecklistItem> = items): Boolean {
+        if (title == savedTitle && updatedItems == savedItems) return false
+        if (title.isBlank() && updatedItems.isEmpty()) return false
+        val id = checklistId ?: UUID.randomUUID().toString().also { checklistId = it }
+        if (existingId == null && existing == null) {
+            repository.createChecklist(id, title, updatedItems)
+        } else {
+            repository.updateChecklist(id, title, updatedItems)
+        }
+        savedTitle = title
+        savedItems = updatedItems
+        return true
+    }
+
+    LaunchedEffect(title, items) {
+        delay(500)
+        saveIfNeeded()
+    }
+
+    val activeItems = items.filterNot(ChecklistItem::done)
+    val completedItems = items.filter(ChecklistItem::done)
+    Column(Modifier.fillMaxSize().testTag("checklist_editor")) {
+        Column(Modifier.weight(1f).padding(horizontal = 40.dp)) {
+            Spacer(Modifier.height(28.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "‹",
+                    modifier =
+                        Modifier.clickable {
+                            saveIfNeeded()
+                            onBack()
+                        },
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 52.sp,
+                )
+                Spacer(Modifier.weight(1f))
+                Text(
+                    if (pinned) "Unpin" else "Pin",
+                    modifier =
+                        Modifier.clickable {
+                            if (saveIfNeeded()) {
+                                checklistId?.let { id -> repository.setPinned(id, !pinned) }
+                                pinned = !pinned
+                            }
+                        },
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 20.sp,
+                )
+                Spacer(Modifier.width(28.dp))
+                Text(
+                    "Delete",
+                    modifier =
+                        Modifier.clickable {
+                            checklistId?.let(repository::delete)
+                            onBack()
+                        },
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 20.sp,
+                )
+            }
+            Spacer(Modifier.height(18.dp))
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth().testTag("checklist_title"),
+                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 56.sp) },
+                textStyle =
+                    androidx.compose.ui.text.TextStyle(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                        fontSize = 56.sp,
+                    ),
+                singleLine = true,
+            )
+            Text(
+                "${completedItems.size} of ${items.size} packed",
+                modifier = Modifier.padding(top = 18.dp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                fontSize = 24.sp,
+            )
+            Spacer(Modifier.height(22.dp))
+            activeItems.forEach { item ->
+                ChecklistItemRow(
+                    item = item,
+                    onToggle = {
+                        items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
+                        saveIfNeeded(items)
+                    },
+                    onChange = { text ->
+                        items = items.map { if (it.id == item.id) it.copy(text = text) else it }
+                    },
+                    onDelete = {
+                        items = items.filterNot { it.id == item.id }
+                        saveIfNeeded(items)
+                    },
+                )
+            }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 40.sp)
+                Spacer(Modifier.width(18.dp))
+                OutlinedTextField(
+                    value = newItemText,
+                    onValueChange = { newItemText = it },
+                    modifier = Modifier.weight(1f).testTag("checklist_add_item"),
+                    placeholder = { Text("Add item", fontSize = 24.sp) },
+                    singleLine = true,
+                )
+                Text(
+                    "Add",
+                    modifier =
+                        Modifier
+                            .padding(start = 12.dp)
+                            .clickable {
+                                val text = newItemText.trim()
+                                if (text.isNotEmpty()) {
+                                    items += ChecklistItem(UUID.randomUUID().toString(), text, false)
+                                    newItemText = ""
+                                    saveIfNeeded(items)
+                                }
+                            }.testTag("checklist_add_button"),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            if (completedItems.isNotEmpty()) {
+                Spacer(Modifier.height(28.dp))
+                SectionTitle("Completed ${completedItems.size}")
+                completedItems.forEach { item ->
+                    ChecklistItemRow(
+                        item = item,
+                        onToggle = {
+                            items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
+                            saveIfNeeded(items)
+                        },
+                        onChange = { text ->
+                            items = items.map { if (it.id == item.id) it.copy(text = text) else it }
+                        },
+                        onDelete = {
+                            items = items.filterNot { it.id == item.id }
+                            saveIfNeeded(items)
+                        },
+                    )
+                }
+            }
+        }
+        Text(
+            "Clear completed",
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .clickable {
+                        items = items.filterNot(ChecklistItem::done)
+                        checklistId?.let { id ->
+                            repository.clearCompletedChecklistItems(id)
+                            savedTitle = title
+                            savedItems = items
+                        } ?: saveIfNeeded(items)
+                    }.padding(vertical = 26.dp)
+                    .testTag("clear_completed"),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 28.sp,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun ChecklistItemRow(
+    item: ChecklistItem,
+    onToggle: () -> Unit,
+    onChange: (String) -> Unit,
+    onDelete: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            if (item.done) "[x]" else "[ ]",
+            modifier = Modifier.clickable(onClick = onToggle).testTag("checklist_toggle_${item.id}"),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 22.sp,
+        )
+        Spacer(Modifier.width(16.dp))
+        OutlinedTextField(
+            value = item.text,
+            onValueChange = onChange,
+            modifier = Modifier.weight(1f).testTag("checklist_item_${item.id}"),
+            textStyle =
+                androidx.compose.ui.text.TextStyle(
+                    fontSize = 27.sp,
+                    textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+                ),
+            singleLine = true,
+        )
+        Text(
+            "×",
+            modifier = Modifier.padding(start = 10.dp).clickable(onClick = onDelete),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 28.sp,
         )
     }
 }

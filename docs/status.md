@@ -2,6 +2,10 @@
 
 ## Current milestone
 
+**Current: Step 6 — Checklists are complete; device UI verification remains.**
+
+**Next: Complete the Step 3 real-relay confirmation and begin Step 7 — Polish and release check.**
+
 **Step 3 — Relay sync implementation is complete; real-relay manual confirmation remains.**
 
 **Next: Complete the Step 3 real-relay confirmation, then begin Step 4 — Login.**
@@ -89,3 +93,18 @@
   remains pending.
 - Step 6 owns checklist creation and its editor; the Phase 5 add action creates
   Notes only.
+
+## Step 6 update (2026-10-11)
+
+- Added encrypted checklist creation and updates, including item editing,
+  completion toggling, deletion, and clearing completed items. Existing Nostr
+  event versioning, dirty state, and relay sync are reused.
+- The Notes add action now offers Note or Checklist. Checklist cards show a
+  completion preview, and the editor follows the checklist mock with active
+  and completed sections, a progress label, pin/delete controls, and a bottom
+  clear-completed action.
+- Added shared repository coverage and Android UI coverage for checklist
+  creation, progress preview, and completed-item placement.
+- Shared/Android unit tests and Detekt pass; ktlint formatting was applied.
+  Device UI verification, the final Android Lint/debug-assembly pass, and the
+  Step 3 real-relay acceptance check remain pending.

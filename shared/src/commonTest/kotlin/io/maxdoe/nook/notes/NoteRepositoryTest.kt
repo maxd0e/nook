@@ -73,6 +73,57 @@ class NoteRepositoryTest {
         assertTrue(repository.notes.value.isEmpty())
     }
 
+    @Test
+    fun checklistCommands_updateItemsAndClearCompletedItems() {
+        val store = FakeEncryptedEventStore()
+        val repository = NoteRepository(store, codec, EpochSecondsClock { 100 })
+
+        repository.createChecklist(
+            noteId = "packing",
+            title = "Packing",
+            items =
+                listOf(
+                    ChecklistItem("passport", "Passport", false),
+                    ChecklistItem("socks", "Socks", true),
+                ),
+        )
+        repository.updateChecklist(
+            noteId = "packing",
+            title = "Trip packing",
+            items =
+                listOf(
+                    ChecklistItem("passport", "Passport and tickets", true),
+                    ChecklistItem("charger", "Phone charger", false),
+                    ChecklistItem("socks", "Socks", true),
+                ),
+        )
+
+        val updated =
+            repository.notes.value
+                .single()
+                .payload as ChecklistPayload
+        assertEquals("Trip packing", updated.title)
+        assertEquals(2, updated.items.count(ChecklistItem::done))
+        assertEquals(
+            listOf("Passport and tickets", "Phone charger", "Socks"),
+            updated.items
+                .map(ChecklistItem::text),
+        )
+
+        repository.clearCompletedChecklistItems("packing")
+
+        val cleared =
+            repository.notes.value
+                .single()
+                .payload as ChecklistPayload
+        assertEquals(
+            listOf("Phone charger"),
+            cleared.items
+                .map(ChecklistItem::text),
+        )
+        assertTrue(store.all().all(StoredNostrEvent::dirty))
+    }
+
     private class FakeEncryptedEventStore : EncryptedEventStore {
         private val events = mutableListOf<StoredNostrEvent>()
 

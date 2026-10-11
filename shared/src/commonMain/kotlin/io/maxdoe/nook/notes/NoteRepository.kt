@@ -93,6 +93,38 @@ class NoteRepository(
         return save(noteId, existing.copy(title = title, body = body))
     }
 
+    fun createChecklist(
+        noteId: String,
+        title: String,
+        items: List<ChecklistItem> = emptyList(),
+    ): SignedNostrEvent {
+        val createdAt = clock.now()
+        return save(
+            noteId,
+            ChecklistPayload(
+                title = title,
+                items = items,
+                pinned = false,
+                createdAt = createdAt,
+                updatedAt = createdAt,
+            ),
+        )
+    }
+
+    fun updateChecklist(
+        noteId: String,
+        title: String,
+        items: List<ChecklistItem>,
+    ): SignedNostrEvent? {
+        val existing = notes.value.firstOrNull { it.id == noteId }?.payload as? ChecklistPayload ?: return null
+        return save(noteId, existing.copy(title = title, items = items))
+    }
+
+    fun clearCompletedChecklistItems(noteId: String): SignedNostrEvent? {
+        val existing = notes.value.firstOrNull { it.id == noteId }?.payload as? ChecklistPayload ?: return null
+        return save(noteId, existing.copy(items = existing.items.filterNot(ChecklistItem::done)))
+    }
+
     fun setPinned(
         noteId: String,
         pinned: Boolean,
