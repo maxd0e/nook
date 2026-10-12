@@ -166,6 +166,26 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Editor pin and action-icon fix (2026-10-12)
+
+- Fixed Note and Checklist editors so pinning an unchanged saved item now
+  persists immediately; pending content changes must still save successfully
+  before the pin state is changed.
+- Replaced the Unicode action glyphs with accessible pushpin and trash-can
+  vector buttons aligned with the supplied editor mock.
+- The pushpin now uses an outlined icon while unpinned and a filled icon while
+  pinned, in both editors.
+- Added Compose regression coverage for pinning unchanged notes and checklists;
+  `:androidApp:compileDebugAndroidTestKotlin`, `:androidApp:ktlintCheck`, and
+  `:androidApp:assembleDebug` pass. Connected-device execution remains blocked
+  locally by Android device bridge access.
+
+## Notes overview refinement update (2026-10-12)
+
+- Removed the redundant Notes heading, reduced the visual weight of the search field, and changed logout to an accessible icon-only control.
+- Notes-list Pinned and All Notes labels now use the compact uppercase styling from the supplied Notes mock; checklist-editor section labels are unchanged.
+- Added Compose coverage for the icon-only logout and list section labels; `:androidApp:compileDebugAndroidTestKotlin`, `:androidApp:ktlintCheck`, and `:androidApp:assembleDebug` pass.
+
 ## Direct signer selection update (2026-10-12)
 
 - The Welcome signer action now launches Android's NIP-55 signer selection

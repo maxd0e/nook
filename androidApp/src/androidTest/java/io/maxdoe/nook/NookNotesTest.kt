@@ -2,6 +2,7 @@ package io.maxdoe.nook
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -15,8 +16,10 @@ import io.maxdoe.nook.nostr.RelayFailureReason
 import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
+import io.maxdoe.nook.notes.ChecklistPayload
 import io.maxdoe.nook.notes.EpochSecondsClock
 import io.maxdoe.nook.notes.NookEventCodec
+import io.maxdoe.nook.notes.NotePayload
 import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.runBlocking
@@ -26,6 +29,24 @@ import org.junit.Test
 class NookNotesTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @Test
+    fun overviewUsesIconOnlyLogoutAndCompactSectionLabels() {
+        val repository =
+            repository().also {
+                runBlocking {
+                    it.createNote("pinned", "Pinned note", "")
+                    it.setPinned("pinned", true)
+                    it.createNote("regular", "Regular note", "")
+                }
+            }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithContentDescription("Log out").assertIsDisplayed()
+        composeRule.onNodeWithText("PINNED").assertIsDisplayed()
+        composeRule.onNodeWithText("ALL NOTES").assertIsDisplayed()
+    }
 
     @Test
     fun search_filtersTheLiveNoteList() {
@@ -67,6 +88,46 @@ class NookNotesTest {
         composeRule.onNodeWithTag("new_note").performClick()
         composeRule.onNodeWithText("Checklist").performClick()
         composeRule.onNodeWithTag("checklist_editor").assertIsDisplayed()
+    }
+
+    @Test
+    fun pinningAnUnchangedNotePersistsAndUsesAccessibleEditorActions() {
+        val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_garden").performClick()
+        composeRule
+            .onNodeWithContentDescription("Pin note")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.waitUntil {
+            val item = repository.notes.value.single()
+            val payload = item.payload as? NotePayload
+            payload?.pinned == true
+        }
+        composeRule.onNodeWithContentDescription("Unpin note").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Delete note").assertIsDisplayed()
+    }
+
+    @Test
+    fun pinningAnUnchangedChecklistPersistsAndUsesAccessibleEditorActions() {
+        val repository = repository().also { runBlocking { it.createChecklist("packing", "Packing") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_packing").performClick()
+        composeRule
+            .onNodeWithContentDescription("Pin checklist")
+            .assertIsDisplayed()
+            .performClick()
+        composeRule.waitUntil {
+            val item = repository.notes.value.single()
+            val payload = item.payload as? ChecklistPayload
+            payload?.pinned == true
+        }
+        composeRule.onNodeWithContentDescription("Unpin checklist").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Delete checklist").assertIsDisplayed()
     }
 
     @Test

@@ -25,6 +25,8 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -43,9 +45,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.maxdoe.nook.nostr.RelayFailureReason
@@ -140,27 +144,29 @@ private fun NotesList(
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             item {
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(32.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Notes", style = MaterialTheme.typography.displayLarge, fontSize = 42.sp)
                     Spacer(Modifier.weight(1f))
                     SyncStatus(currentSyncStatus, currentSyncHealth)
-                    Spacer(Modifier.width(12.dp))
-                    Text(
-                        "Log out",
-                        modifier = Modifier.clickable(onClick = onLogout),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
+                    Spacer(Modifier.width(4.dp))
+                    IconButton(onClick = onLogout, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_logout),
+                            contentDescription = "Log out",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                 }
-                Spacer(Modifier.height(15.dp))
+                Spacer(Modifier.height(8.dp))
                 TextField(
                     value = query,
                     onValueChange = { query = it },
-                    modifier = Modifier.fillMaxWidth().testTag("notes_search"),
+                    modifier = Modifier.fillMaxWidth().height(52.dp).testTag("notes_search"),
                     singleLine = true,
                     leadingIcon = { Text("⌕", fontSize = 32.sp) },
-                    placeholder = { Text("Search", fontSize = 17.sp) },
-                    shape = RoundedCornerShape(14.dp),
+                    placeholder = { Text("Search", fontSize = 16.sp) },
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 16.sp),
+                    shape = RoundedCornerShape(12.dp),
                     colors =
                         TextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -174,11 +180,11 @@ private fun NotesList(
                 item { EmptyNotesState(hasQuery = query.isNotBlank()) }
             }
             if (pinned.isNotEmpty()) {
-                item { SectionTitle("Pinned") }
+                item { NotesListSectionTitle("Pinned") }
                 items(pinned, key = NookListItem::id) { NookCard(it, onOpenNote, onOpenChecklist) }
             }
             if (unpinned.isNotEmpty()) {
-                item { SectionTitle(if (pinned.isEmpty()) "All notes" else "All notes") }
+                item { NotesListSectionTitle("All notes") }
                 items(unpinned, key = NookListItem::id) { NookCard(it, onOpenNote, onOpenChecklist) }
             }
             item { Spacer(Modifier.height(110.dp)) }
@@ -281,6 +287,19 @@ private fun SectionTitle(label: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.Bold,
         fontSize = 23.sp,
+    )
+}
+
+@Composable
+private fun NotesListSectionTitle(label: String) {
+    Text(
+        label.uppercase(),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontWeight = FontWeight.Medium,
+        fontSize = 14.sp,
+        letterSpacing = 1.5.sp,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
     )
 }
 
@@ -447,41 +466,49 @@ private fun NoteEditor(
             Spacer(Modifier.weight(1f))
             SyncStatus(currentSyncStatus, currentSyncHealth)
             Spacer(Modifier.width(20.dp))
-            Text(
-                if (pinned) "⌑" else "⌖",
-                modifier =
-                    Modifier.clickable {
-                        coroutineScope.launch {
-                            if (saveIfNeeded()) {
-                                runCatching {
-                                    noteId?.let { id -> repository.setPinned(id, !pinned) }
-                                }.onSuccess {
-                                    pinned = !pinned
-                                }.onFailure {
-                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                                }
+            IconButton(
+                onClick = {
+                    coroutineScope.launch {
+                        val hasUnsavedContent = title != savedTitle || body.text != savedBody
+                        if (hasUnsavedContent && !saveIfNeeded()) return@launch
+                        val id = noteId ?: return@launch
+                        runCatching { repository.setPinned(id, !pinned) }
+                            .onSuccess { pinned = !pinned }
+                            .onFailure {
+                                saveError = "Could not save: ${it.message ?: "signer request failed."}"
                             }
-                        }
-                    },
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 25.sp,
-            )
-            Spacer(Modifier.width(28.dp))
-            Text(
-                "⌫",
-                modifier =
-                    Modifier.clickable {
-                        coroutineScope.launch {
-                            runCatching { noteId?.let { repository.delete(it) } }
-                                .onSuccess { onBack() }
-                                .onFailure {
-                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                                }
-                        }
-                    },
-                color = MaterialTheme.colorScheme.primary,
-                fontSize = 25.sp,
-            )
+                    }
+                },
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    painter =
+                        painterResource(
+                            if (pinned) R.drawable.ic_push_pin else R.drawable.ic_push_pin_outline,
+                        ),
+                    contentDescription = if (pinned) "Unpin note" else "Pin note",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            IconButton(
+                onClick = {
+                    coroutineScope.launch {
+                        runCatching { noteId?.let { repository.delete(it) } }
+                            .onSuccess { onBack() }
+                            .onFailure {
+                                saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                            }
+                    }
+                },
+                modifier = Modifier.size(40.dp),
+            ) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_delete),
+                    contentDescription = "Delete note",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
         }
         Spacer(Modifier.height(12.dp))
         saveError?.let {
@@ -594,41 +621,49 @@ private fun ChecklistEditor(
                 Spacer(Modifier.weight(1f))
                 SyncStatus(currentSyncStatus, currentSyncHealth)
                 Spacer(Modifier.width(20.dp))
-                Text(
-                    if (pinned) "⌑" else "⌖",
-                    modifier =
-                        Modifier.clickable {
-                            coroutineScope.launch {
-                                if (saveIfNeeded()) {
-                                    runCatching {
-                                        checklistId?.let { id -> repository.setPinned(id, !pinned) }
-                                    }.onSuccess {
-                                        pinned = !pinned
-                                    }.onFailure {
-                                        saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                                    }
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            val hasUnsavedContent = title != savedTitle || items != savedItems
+                            if (hasUnsavedContent && !saveIfNeeded()) return@launch
+                            val id = checklistId ?: return@launch
+                            runCatching { repository.setPinned(id, !pinned) }
+                                .onSuccess { pinned = !pinned }
+                                .onFailure {
+                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
                                 }
-                            }
-                        },
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 25.sp,
-                )
-                Spacer(Modifier.width(28.dp))
-                Text(
-                    "⌫",
-                    modifier =
-                        Modifier.clickable {
-                            coroutineScope.launch {
-                                runCatching { checklistId?.let { repository.delete(it) } }
-                                    .onSuccess { onBack() }
-                                    .onFailure {
-                                        saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                                    }
-                            }
-                        },
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 25.sp,
-                )
+                        }
+                    },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        painter =
+                            painterResource(
+                                if (pinned) R.drawable.ic_push_pin else R.drawable.ic_push_pin_outline,
+                            ),
+                        contentDescription = if (pinned) "Unpin checklist" else "Pin checklist",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            runCatching { checklistId?.let { repository.delete(it) } }
+                                .onSuccess { onBack() }
+                                .onFailure {
+                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
+                                }
+                        }
+                    },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_delete),
+                        contentDescription = "Delete checklist",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
             }
             Spacer(Modifier.height(12.dp))
             saveError?.let {
