@@ -298,6 +298,14 @@
   Android navigation-bar inset, keeping their actions above the system Back and
   Home controls on edge-to-edge devices.
 
+## Checklist add keyboard fix (2026-10-12)
+
+- Adding a checklist item now clears input focus and dismisses the software
+  keyboard. A Compose regression test covers the focus reset.
+- `:androidApp:compileDebugAndroidTestKotlin` and
+  `:androidApp:ktlintCheck` pass. The test source also now uses the supported
+  collection assertion in place of an unavailable `assertDoesNotExist` import.
+
 ## v1.1 signer update (2026-10-12)
 
 - Added a portable `Signer` contract and `LocalKeySigner`; existing local-key

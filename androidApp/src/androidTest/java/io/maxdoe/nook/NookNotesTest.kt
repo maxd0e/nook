@@ -1,8 +1,10 @@
 package io.maxdoe.nook
 
-import androidx.compose.ui.test.assertDoesNotExist
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -92,17 +94,31 @@ class NookNotesTest {
     }
 
     @Test
+    fun addingAChecklistItemClearsTheInputFocus() {
+        val repository = repository()
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("new_note").performClick()
+        composeRule.onNodeWithTag("new_checklist").performClick()
+        composeRule.onNodeWithTag("checklist_add_item").performTextInput("Passport")
+        composeRule.onNodeWithTag("checklist_add_button").performClick()
+
+        composeRule.onNodeWithTag("checklist_add_item").assertIsNotFocused()
+    }
+
+    @Test
     fun addSpeedDialCreatesANoteAndClosesWhenToggled() {
         val repository = repository()
 
         composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
 
-        composeRule.onNodeWithTag("new_note_action").assertDoesNotExist()
+        composeRule.onAllNodesWithTag("new_note_action").assertCountEquals(0)
         composeRule.onNodeWithTag("new_note").performClick()
         composeRule.onNodeWithTag("new_note_action").assertIsDisplayed()
         composeRule.onNodeWithTag("new_note").performClick()
         composeRule.waitForIdle()
-        composeRule.onNodeWithTag("new_note_action").assertDoesNotExist()
+        composeRule.onAllNodesWithTag("new_note_action").assertCountEquals(0)
 
         composeRule.onNodeWithTag("new_note").performClick()
         composeRule.onNodeWithTag("new_note_action").performClick()

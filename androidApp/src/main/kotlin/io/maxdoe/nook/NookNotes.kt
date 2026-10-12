@@ -57,6 +57,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -764,6 +766,8 @@ private fun ChecklistEditor(
     var itemPendingDelete by remember(existingId) { mutableStateOf<ChecklistItem?>(null) }
     var clearCompletedRequested by remember(existingId) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
 
@@ -942,6 +946,8 @@ private fun ChecklistEditor(
                                         newItemText = ""
                                         coroutineScope.launch { saveIfNeeded(items) }
                                     }
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                 }.testTag("checklist_add_button"),
                         color = MaterialTheme.colorScheme.primary,
                     )
