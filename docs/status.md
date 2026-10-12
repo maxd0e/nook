@@ -166,6 +166,23 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Editor and checklist visual refinement update (2026-10-12)
+
+- Reduced the note and checklist editor type scale and spacing to match the
+  supplied 390x844 mockups: serif remains limited to titles and markdown
+  headings, while note body and checklist text use a compact sans-serif scale.
+- Reworked checklist editing into borderless, compact rows with lightweight
+  completion controls and an inline add-item field; the completed section and
+  bottom clear action retain the mock's sparse composition.
+- Permanent note, checklist, checklist-item, and clear-completed actions now
+  present contextual Cancel/confirm dialogs before mutating local data.
+- Added Compose coverage for cancelling and confirming note deletion and for
+  checklist-item/clear-completed confirmation. `:androidApp:compileDebugAndroidTestKotlin`,
+  `:androidApp:testDebugUnitTest`, `:androidApp:ktlintCheck`,
+  `:androidApp:lintDebug`, and `:androidApp:assembleDebug` pass. Connected
+  device execution remains unavailable locally because Android bridge access is
+  blocked.
+
 ## Theme preference persistence fix (2026-10-12)
 
 - The selected light or dark theme now persists in app preferences across app

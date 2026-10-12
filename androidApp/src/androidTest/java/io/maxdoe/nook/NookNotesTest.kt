@@ -111,6 +111,63 @@ class NookNotesTest {
     }
 
     @Test
+    fun deletingANoteRequiresConfirmation() {
+        val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_garden").performClick()
+        composeRule.onNodeWithContentDescription("Delete note").performClick()
+        composeRule.onNodeWithText("Delete note?").assertIsDisplayed()
+        composeRule.onNodeWithTag("delete_cancel").performClick()
+        composeRule.onNodeWithContentDescription("Delete note").assertIsDisplayed()
+        check(
+            repository.notes.value
+                .single()
+                .id == "garden",
+        )
+        composeRule.onNodeWithContentDescription("Delete note").performClick()
+        composeRule.onNodeWithTag("delete_confirm").performClick()
+        composeRule.waitUntil { repository.notes.value.isEmpty() }
+    }
+
+    @Test
+    fun checklistItemAndClearCompletedRequireConfirmation() {
+        val repository =
+            repository().also {
+                runBlocking {
+                    it.createChecklist(
+                        "packing",
+                        "Packing",
+                        listOf(
+                            ChecklistItem("passport", "Passport", false),
+                            ChecklistItem("socks", "Socks", true),
+                        ),
+                    )
+                }
+            }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_packing").performClick()
+        composeRule.onNodeWithContentDescription("Edit checklist").performClick()
+        composeRule.onNodeWithTag("checklist_delete_passport").performClick()
+        composeRule.onNodeWithText("Delete item?").assertIsDisplayed()
+        composeRule.onNodeWithTag("delete_cancel").performClick()
+        composeRule.onNodeWithTag("checklist_item_passport").assertIsDisplayed()
+        composeRule.onNodeWithTag("clear_completed").performClick()
+        composeRule.onNodeWithText("Clear completed?").assertIsDisplayed()
+        composeRule.onNodeWithTag("delete_confirm").performClick()
+        composeRule.waitUntil {
+            val payload =
+                repository.notes.value
+                    .single()
+                    .payload as? ChecklistPayload
+            payload?.items?.size == 1
+        }
+    }
+
+    @Test
     fun existingNoteOpensReadOnlyAndSavesOnlyWhenRequested() {
         val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
 

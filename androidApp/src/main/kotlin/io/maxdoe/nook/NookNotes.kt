@@ -22,6 +22,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -32,6 +33,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -92,6 +94,17 @@ private sealed interface NotesDestination {
 
 private val OfflineSyncStatus = MutableStateFlow(RelaySyncStatus.Offline)
 private val OfflineRelayHealth = MutableStateFlow(RelaySyncHealth())
+
+private enum class DeleteTarget(
+    val title: String,
+    val message: String,
+    val confirmLabel: String,
+) {
+    Note("Delete note?", "This note will be permanently deleted.", "Delete"),
+    Checklist("Delete checklist?", "This checklist will be permanently deleted.", "Delete"),
+    ChecklistItem("Delete item?", "This checklist item will be permanently deleted.", "Delete"),
+    CompletedItems("Clear completed?", "All completed checklist items will be permanently deleted.", "Clear"),
+}
 
 @Composable
 fun NookNotes(
@@ -434,6 +447,7 @@ private fun NoteEditor(
     var savedBody by remember(existingId) { mutableStateOf(existing?.body.orEmpty()) }
     var saveError by remember(existingId) { mutableStateOf<String?>(null) }
     var isEditing by remember(existingId) { mutableStateOf(startsInEditMode) }
+    var deleteRequested by remember(existingId) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
@@ -531,15 +545,7 @@ private fun NoteEditor(
             }
             Spacer(Modifier.width(12.dp))
             IconButton(
-                onClick = {
-                    coroutineScope.launch {
-                        runCatching { noteId?.let { repository.delete(it) } }
-                            .onSuccess { onBack() }
-                            .onFailure {
-                                saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                            }
-                    }
-                },
+                onClick = { deleteRequested = true },
                 modifier = Modifier.size(40.dp),
             ) {
                 Icon(
@@ -562,11 +568,11 @@ private fun NoteEditor(
                 value = title,
                 onValueChange = { title = it },
                 modifier = Modifier.fillMaxWidth().testTag("note_title"),
-                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
+                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 30.sp) },
                 textStyle =
                     androidx.compose.ui.text.TextStyle(
                         fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                        fontSize = 34.sp,
+                        fontSize = 30.sp,
                     ),
                 singleLine = true,
             )
@@ -575,10 +581,10 @@ private fun NoteEditor(
                 value = body,
                 onValueChange = { body = it },
                 modifier = Modifier.fillMaxWidth().weight(1f).testTag("note_body"),
-                placeholder = { Text("Start writing…", fontSize = 24.sp) },
+                placeholder = { Text("Start writing…", fontSize = 17.sp) },
                 textStyle =
                     androidx.compose.ui.text
-                        .TextStyle(fontSize = 18.sp, lineHeight = 27.sp),
+                        .TextStyle(fontSize = 17.sp, lineHeight = 26.sp),
             )
             MarkdownToolbar(
                 onBold = { body = toggleInlineMarkdown(body, "**") },
@@ -590,6 +596,21 @@ private fun NoteEditor(
             NoteReadContent(title, body.text)
         }
     }
+    if (deleteRequested) {
+        DeleteConfirmation(
+            target = DeleteTarget.Note,
+            onDismiss = { deleteRequested = false },
+            onConfirm = {
+                deleteRequested = false
+                coroutineScope.launch {
+                    val id = noteId ?: return@launch
+                    runCatching { repository.delete(id) }
+                        .onSuccess { onBack() }
+                        .onFailure { saveError = "Could not save: ${it.message ?: "signer request failed."}" }
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -600,11 +621,11 @@ private fun NoteReadContent(
     Text(
         title.ifBlank { "Untitled" },
         style = MaterialTheme.typography.displayLarge,
-        fontSize = 56.sp,
+        fontSize = 32.sp,
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Bold,
     )
-    Spacer(Modifier.height(30.dp))
+    Spacer(Modifier.height(20.dp))
     body.lineSequence().forEach { line ->
         when {
             line.startsWith("## ") -> {
@@ -612,20 +633,20 @@ private fun NoteReadContent(
                     line.removePrefix("## "),
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 42.sp,
+                    fontSize = 24.sp,
                 )
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(12.dp))
             }
             line.startsWith("- ") -> {
                 Text(
                     text = buildMarkdownText("•  ${line.removePrefix("- ")}"),
-                    fontSize = 24.sp,
-                    lineHeight = 34.sp,
+                    fontSize = 17.sp,
+                    lineHeight = 26.sp,
                     modifier = Modifier.padding(start = 12.dp),
                 )
             }
-            line.isBlank() -> Spacer(Modifier.height(18.dp))
-            else -> Text(buildMarkdownText(line), fontSize = 24.sp, lineHeight = 34.sp)
+            line.isBlank() -> Spacer(Modifier.height(12.dp))
+            else -> Text(buildMarkdownText(line), fontSize = 17.sp, lineHeight = 26.sp)
         }
     }
 }
@@ -683,6 +704,9 @@ private fun ChecklistEditor(
     var newItemText by remember { mutableStateOf("") }
     var saveError by remember(existingId) { mutableStateOf<String?>(null) }
     var isEditing by remember(existingId) { mutableStateOf(startsInEditMode) }
+    var deleteRequested by remember(existingId) { mutableStateOf(false) }
+    var itemPendingDelete by remember(existingId) { mutableStateOf<ChecklistItem?>(null) }
+    var clearCompletedRequested by remember(existingId) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
@@ -778,15 +802,7 @@ private fun ChecklistEditor(
                 }
                 Spacer(Modifier.width(12.dp))
                 IconButton(
-                    onClick = {
-                        coroutineScope.launch {
-                            runCatching { checklistId?.let { repository.delete(it) } }
-                                .onSuccess { onBack() }
-                                .onFailure {
-                                    saveError = "Could not save: ${it.message ?: "signer request failed."}"
-                                }
-                        }
-                    },
+                    onClick = { deleteRequested = true },
                     modifier = Modifier.size(40.dp),
                 ) {
                     Icon(
@@ -805,11 +821,11 @@ private fun ChecklistEditor(
                     value = title,
                     onValueChange = { title = it },
                     modifier = Modifier.fillMaxWidth().testTag("checklist_title"),
-                    placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
+                    placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 30.sp) },
                     textStyle =
                         androidx.compose.ui.text.TextStyle(
                             fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                            fontSize = 34.sp,
+                            fontSize = 30.sp,
                         ),
                     singleLine = true,
                 )
@@ -817,9 +833,9 @@ private fun ChecklistEditor(
                     "${completedItems.size} of ${items.size} packed",
                     modifier = Modifier.padding(top = 18.dp),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 17.sp,
+                    fontSize = 15.sp,
                 )
-                Spacer(Modifier.height(22.dp))
+                Spacer(Modifier.height(18.dp))
                 activeItems.forEach { item ->
                     ChecklistItemRow(
                         item = item,
@@ -830,20 +846,28 @@ private fun ChecklistEditor(
                         onChange = { text ->
                             items = items.map { if (it.id == item.id) it.copy(text = text) else it }
                         },
-                        onDelete = {
-                            items = items.filterNot { it.id == item.id }
-                            coroutineScope.launch { saveIfNeeded(items) }
-                        },
+                        onDelete = { itemPendingDelete = item },
                     )
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 32.sp)
-                    Spacer(Modifier.width(18.dp))
-                    OutlinedTextField(
+                    Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 28.sp)
+                    Spacer(Modifier.width(14.dp))
+                    TextField(
                         value = newItemText,
                         onValueChange = { newItemText = it },
-                        modifier = Modifier.weight(1f).testTag("checklist_add_item"),
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .testTag("checklist_add_item"),
                         placeholder = { Text("Add item", fontSize = 18.sp) },
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
+                        colors =
+                            TextFieldDefaults.colors(
+                                focusedContainerColor = Color.Transparent,
+                                unfocusedContainerColor = Color.Transparent,
+                                focusedIndicatorColor = Color.Transparent,
+                                unfocusedIndicatorColor = Color.Transparent,
+                            ),
                         singleLine = true,
                     )
                     Text(
@@ -875,10 +899,7 @@ private fun ChecklistEditor(
                             onChange = { text ->
                                 items = items.map { if (it.id == item.id) it.copy(text = text) else it }
                             },
-                            onDelete = {
-                                items = items.filterNot { it.id == item.id }
-                                coroutineScope.launch { saveIfNeeded(items) }
-                            },
+                            onDelete = { itemPendingDelete = item },
                         )
                     }
                 }
@@ -900,16 +921,51 @@ private fun ChecklistEditor(
                     Modifier
                         .fillMaxWidth()
                         .background(MaterialTheme.colorScheme.surfaceVariant)
-                        .clickable {
-                            items = items.filterNot(ChecklistItem::done)
-                            coroutineScope.launch { saveIfNeeded(items) }
-                        }.padding(vertical = 26.dp)
+                        .clickable { clearCompletedRequested = true }
+                        .padding(vertical = 22.dp)
                         .testTag("clear_completed"),
                 color = MaterialTheme.colorScheme.primary,
-                fontSize = 28.sp,
+                fontSize = 18.sp,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             )
         }
+    }
+    if (deleteRequested) {
+        DeleteConfirmation(
+            target = DeleteTarget.Checklist,
+            onDismiss = { deleteRequested = false },
+            onConfirm = {
+                deleteRequested = false
+                coroutineScope.launch {
+                    val id = checklistId ?: return@launch
+                    runCatching { repository.delete(id) }
+                        .onSuccess { onBack() }
+                        .onFailure { saveError = "Could not save: ${it.message ?: "signer request failed."}" }
+                }
+            },
+        )
+    }
+    itemPendingDelete?.let { item ->
+        DeleteConfirmation(
+            target = DeleteTarget.ChecklistItem,
+            onDismiss = { itemPendingDelete = null },
+            onConfirm = {
+                itemPendingDelete = null
+                items = items.filterNot { it.id == item.id }
+                coroutineScope.launch { saveIfNeeded(items) }
+            },
+        )
+    }
+    if (clearCompletedRequested) {
+        DeleteConfirmation(
+            target = DeleteTarget.CompletedItems,
+            onDismiss = { clearCompletedRequested = false },
+            onConfirm = {
+                clearCompletedRequested = false
+                items = items.filterNot(ChecklistItem::done)
+                coroutineScope.launch { saveIfNeeded(items) }
+            },
+        )
     }
 }
 
@@ -924,17 +980,17 @@ private fun ChecklistReadContent(
     Text(
         title.ifBlank { "Untitled checklist" },
         style = MaterialTheme.typography.displayLarge,
-        fontSize = 56.sp,
+        fontSize = 32.sp,
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Bold,
     )
     Text(
         "${completedItems.size} of ${items.size} packed",
-        modifier = Modifier.padding(top = 14.dp),
+        modifier = Modifier.padding(top = 10.dp),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
-        fontSize = 17.sp,
+        fontSize = 15.sp,
     )
-    Spacer(Modifier.height(20.dp))
+    Spacer(Modifier.height(18.dp))
     activeItems.forEach { item -> ChecklistReadItem(item, onToggle) }
     if (completedItems.isNotEmpty()) {
         Spacer(Modifier.height(28.dp))
@@ -949,18 +1005,18 @@ private fun ChecklistReadItem(
     onToggle: (ChecklistItem) -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable { onToggle(item) }.padding(vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable { onToggle(item) }.padding(vertical = 11.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (item.done) "☑" else "☐",
+            if (item.done) "✓" else "○",
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 27.sp,
+            fontSize = 20.sp,
         )
-        Spacer(Modifier.width(18.dp))
+        Spacer(Modifier.width(16.dp))
         Text(
             item.text,
-            fontSize = 28.sp,
+            fontSize = 18.sp,
             textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
             color = if (item.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
         )
@@ -975,32 +1031,46 @@ private fun ChecklistItemRow(
     onDelete: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
-            if (item.done) "[x]" else "[ ]",
+            if (item.done) "✓" else "○",
             modifier = Modifier.clickable(onClick = onToggle).testTag("checklist_toggle_${item.id}"),
             color = MaterialTheme.colorScheme.primary,
-            fontSize = 22.sp,
+            fontSize = 20.sp,
         )
         Spacer(Modifier.width(16.dp))
-        OutlinedTextField(
+        TextField(
             value = item.text,
             onValueChange = onChange,
-            modifier = Modifier.weight(1f).testTag("checklist_item_${item.id}"),
+            modifier =
+                Modifier
+                    .weight(1f)
+                    .testTag("checklist_item_${item.id}"),
             textStyle =
                 androidx.compose.ui.text.TextStyle(
-                    fontSize = 27.sp,
+                    fontSize = 18.sp,
                     textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
                 ),
             singleLine = true,
+            colors =
+                TextFieldDefaults.colors(
+                    focusedContainerColor = Color.Transparent,
+                    unfocusedContainerColor = Color.Transparent,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                ),
         )
         Text(
             "×",
-            modifier = Modifier.padding(start = 10.dp).clickable(onClick = onDelete),
+            modifier =
+                Modifier
+                    .padding(start = 10.dp)
+                    .clickable(onClick = onDelete)
+                    .testTag("checklist_delete_${item.id}"),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 28.sp,
+            fontSize = 22.sp,
         )
     }
 }
@@ -1040,5 +1110,28 @@ private fun ToolbarAction(
         color = MaterialTheme.colorScheme.primary,
         fontSize = 28.sp,
         fontWeight = weight,
+    )
+}
+
+@Composable
+private fun DeleteConfirmation(
+    target: DeleteTarget,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(target.title) },
+        text = { Text(target.message) },
+        dismissButton = {
+            TextButton(onClick = onDismiss, modifier = Modifier.testTag("delete_cancel")) {
+                Text("Cancel")
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm, modifier = Modifier.testTag("delete_confirm")) {
+                Text(target.confirmLabel, color = MaterialTheme.colorScheme.error)
+            }
+        },
     )
 }
