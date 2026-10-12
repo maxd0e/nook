@@ -17,7 +17,9 @@ function database() {
 function transaction(mode, action) {
     return database().then(db => new Promise((resolve, reject) => {
         const tx = db.transaction(storeName, mode)
-        action(tx.objectStore(storeName), resolve, reject)
+        let result
+        action(tx.objectStore(storeName), value => { result = value }, reject)
+        tx.oncomplete = () => resolve(result)
         tx.onerror = () => reject(tx.error)
         tx.onabort = () => reject(tx.error)
     }))

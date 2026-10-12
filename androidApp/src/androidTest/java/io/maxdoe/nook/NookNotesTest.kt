@@ -369,11 +369,11 @@ class NookNotesTest {
 
         override fun all(): List<StoredNostrEvent> = events.toList()
 
-        override fun insert(event: StoredNostrEvent) {
+        override suspend fun insert(event: StoredNostrEvent) {
             if (events.none { it.event.id == event.event.id }) events += event
         }
 
-        override fun markClean(eventId: String) {
+        override suspend fun markClean(eventId: String) {
             val index = events.indexOfFirst { it.event.id == eventId }
             if (index >= 0) events[index] = events[index].copy(dirty = false)
         }

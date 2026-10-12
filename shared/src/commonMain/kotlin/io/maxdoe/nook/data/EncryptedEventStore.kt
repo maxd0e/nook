@@ -14,9 +14,9 @@ data class StoredNostrEvent(
 interface EncryptedEventStore {
     fun all(): List<StoredNostrEvent>
 
-    fun insert(event: StoredNostrEvent)
+    suspend fun insert(event: StoredNostrEvent)
 
-    fun markClean(eventId: String)
+    suspend fun markClean(eventId: String)
 }
 
 class SqlDelightEncryptedEventStore(
@@ -28,7 +28,7 @@ class SqlDelightEncryptedEventStore(
 
     override fun all(): List<StoredNostrEvent> = queries.selectAll(::toStoredEvent).executeAsList()
 
-    override fun insert(event: StoredNostrEvent) {
+    override suspend fun insert(event: StoredNostrEvent) {
         val source = event.event
         queries.insertEvent(
             id = source.id,
@@ -43,7 +43,7 @@ class SqlDelightEncryptedEventStore(
         )
     }
 
-    override fun markClean(eventId: String) {
+    override suspend fun markClean(eventId: String) {
         queries.markClean(eventId)
     }
 

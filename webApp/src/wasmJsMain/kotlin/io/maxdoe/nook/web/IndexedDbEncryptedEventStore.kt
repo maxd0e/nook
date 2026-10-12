@@ -18,16 +18,18 @@ class IndexedDbEncryptedEventStore private constructor(
 ) : EncryptedEventStore {
     override fun all(): List<StoredNostrEvent> = events.toList()
 
-    override fun insert(event: StoredNostrEvent) {
-        if (events.none { it.event.id == event.event.id }) events += event
-        IndexedDbBridge.put(json.encodeToString(PersistedEvent.from(event)))
+    override suspend fun insert(event: StoredNostrEvent) {
+        if (events.none { it.event.id == event.event.id }) {
+            IndexedDbBridge.put(json.encodeToString(PersistedEvent.from(event))).await<JsString>()
+            events += event
+        }
     }
 
-    override fun markClean(eventId: String) {
+    override suspend fun markClean(eventId: String) {
         val index = events.indexOfFirst { it.event.id == eventId }
         if (index >= 0) {
+            IndexedDbBridge.markClean(eventId).await<JsString>()
             events[index] = events[index].copy(dirty = false)
-            IndexedDbBridge.markClean(eventId)
         }
     }
 
