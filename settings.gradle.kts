@@ -25,3 +25,4 @@ dependencyResolutionManagement {
 rootProject.name = "nook"
 include(":shared")
 include(":androidApp")
+include(":webApp")
