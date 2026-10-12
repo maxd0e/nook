@@ -18,8 +18,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -33,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -46,10 +47,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.maxdoe.nook.nostr.RelayFailureReason
@@ -60,7 +67,6 @@ import io.maxdoe.nook.notes.ChecklistPayload
 import io.maxdoe.nook.notes.NookListItem
 import io.maxdoe.nook.notes.NotePayload
 import io.maxdoe.nook.notes.NoteRepository
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -75,10 +81,12 @@ private sealed interface NotesDestination {
 
     data class Editor(
         val noteId: String?,
+        val startsInEditMode: Boolean,
     ) : NotesDestination
 
     data class ChecklistEditor(
         val checklistId: String?,
+        val startsInEditMode: Boolean,
     ) : NotesDestination
 }
 
@@ -97,23 +105,32 @@ fun NookNotes(
         NotesDestination.List ->
             NotesList(
                 repository = repository,
-                onNewNote = { destination = NotesDestination.Editor(null) },
-                onNewChecklist = { destination = NotesDestination.ChecklistEditor(null) },
-                onOpenNote = { destination = NotesDestination.Editor(it) },
-                onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it) },
+                onNewNote = { destination = NotesDestination.Editor(null, startsInEditMode = true) },
+                onNewChecklist = { destination = NotesDestination.ChecklistEditor(null, startsInEditMode = true) },
+                onOpenNote = { destination = NotesDestination.Editor(it, startsInEditMode = false) },
+                onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it, startsInEditMode = false) },
                 syncStatus = syncStatus,
                 syncHealth = syncHealth,
                 onLogout = onLogout,
             )
         is NotesDestination.Editor ->
-            NoteEditor(repository, current.noteId, syncStatus, syncHealth, onBack = {
-                destination =
-                    NotesDestination.List
-            })
+            NoteEditor(
+                repository = repository,
+                existingId = current.noteId,
+                startsInEditMode = current.startsInEditMode,
+                syncStatus = syncStatus,
+                syncHealth = syncHealth,
+                onBack = { destination = NotesDestination.List },
+            )
         is NotesDestination.ChecklistEditor ->
-            ChecklistEditor(repository, current.checklistId, syncStatus, syncHealth, onBack = {
-                destination = NotesDestination.List
-            })
+            ChecklistEditor(
+                repository = repository,
+                existingId = current.checklistId,
+                startsInEditMode = current.startsInEditMode,
+                syncStatus = syncStatus,
+                syncHealth = syncHealth,
+                onBack = { destination = NotesDestination.List },
+            )
     }
 }
 
@@ -402,6 +419,7 @@ private fun relativeDate(epochSeconds: Long): String {
 private fun NoteEditor(
     repository: NoteRepository,
     existingId: String?,
+    startsInEditMode: Boolean,
     syncStatus: StateFlow<RelaySyncStatus>,
     syncHealth: StateFlow<RelaySyncHealth>,
     onBack: () -> Unit,
@@ -415,6 +433,7 @@ private fun NoteEditor(
     var savedTitle by remember(existingId) { mutableStateOf(existing?.title.orEmpty()) }
     var savedBody by remember(existingId) { mutableStateOf(existing?.body.orEmpty()) }
     var saveError by remember(existingId) { mutableStateOf<String?>(null) }
+    var isEditing by remember(existingId) { mutableStateOf(startsInEditMode) }
     val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
@@ -444,12 +463,13 @@ private fun NoteEditor(
         )
     }
 
-    LaunchedEffect(title, body.text) {
-        delay(500)
-        saveIfNeeded()
-    }
-
-    Column(Modifier.fillMaxSize().padding(horizontal = 24.dp).testTag("note_editor")) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .then(if (isEditing) Modifier else Modifier.verticalScroll(rememberScrollState()))
+            .padding(horizontal = 24.dp)
+            .testTag("note_editor"),
+    ) {
         Spacer(Modifier.height(20.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -466,6 +486,25 @@ private fun NoteEditor(
             Spacer(Modifier.weight(1f))
             SyncStatus(currentSyncStatus, currentSyncHealth)
             Spacer(Modifier.width(20.dp))
+            IconButton(
+                onClick = {
+                    coroutineScope.launch {
+                        if (isEditing) {
+                            if (saveIfNeeded() || (title == savedTitle && body.text == savedBody)) isEditing = false
+                        } else {
+                            isEditing = true
+                        }
+                    }
+                },
+                modifier = Modifier.size(40.dp).testTag("note_edit_save"),
+            ) {
+                Icon(
+                    painter = painterResource(if (isEditing) R.drawable.ic_save else R.drawable.ic_edit),
+                    contentDescription = if (isEditing) "Save note" else "Edit note",
+                    tint = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Spacer(Modifier.width(4.dp))
             IconButton(
                 onClick = {
                     coroutineScope.launch {
@@ -518,42 +557,117 @@ private fun NoteEditor(
                 modifier = Modifier.testTag("note_save_error"),
             )
         }
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            modifier = Modifier.fillMaxWidth().testTag("note_title"),
-            placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
-            textStyle =
-                androidx.compose.ui.text.TextStyle(
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                    fontSize = 34.sp,
-                ),
-            singleLine = true,
-        )
-        Spacer(Modifier.height(14.dp))
-        OutlinedTextField(
-            value = body,
-            onValueChange = { body = it },
-            modifier = Modifier.fillMaxWidth().weight(1f).testTag("note_body"),
-            placeholder = { Text("Start writing…", fontSize = 24.sp) },
-            textStyle =
-                androidx.compose.ui.text
-                    .TextStyle(fontSize = 18.sp, lineHeight = 27.sp),
-        )
-        MarkdownToolbar(
-            onBold = { body = toggleInlineMarkdown(body, "**") },
-            onItalic = { body = toggleInlineMarkdown(body, "_") },
-            onHeading = { body = insertHeading(body) },
-            onBullet = { body = insertBullet(body) },
-        )
+        if (isEditing) {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                modifier = Modifier.fillMaxWidth().testTag("note_title"),
+                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
+                textStyle =
+                    androidx.compose.ui.text.TextStyle(
+                        fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                        fontSize = 34.sp,
+                    ),
+                singleLine = true,
+            )
+            Spacer(Modifier.height(14.dp))
+            OutlinedTextField(
+                value = body,
+                onValueChange = { body = it },
+                modifier = Modifier.fillMaxWidth().weight(1f).testTag("note_body"),
+                placeholder = { Text("Start writing…", fontSize = 24.sp) },
+                textStyle =
+                    androidx.compose.ui.text
+                        .TextStyle(fontSize = 18.sp, lineHeight = 27.sp),
+            )
+            MarkdownToolbar(
+                onBold = { body = toggleInlineMarkdown(body, "**") },
+                onItalic = { body = toggleInlineMarkdown(body, "_") },
+                onHeading = { body = insertHeading(body) },
+                onBullet = { body = insertBullet(body) },
+            )
+        } else {
+            NoteReadContent(title, body.text)
+        }
     }
 }
+
+@Composable
+private fun NoteReadContent(
+    title: String,
+    body: String,
+) {
+    Text(
+        title.ifBlank { "Untitled" },
+        style = MaterialTheme.typography.displayLarge,
+        fontSize = 56.sp,
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    )
+    Spacer(Modifier.height(30.dp))
+    body.lineSequence().forEach { line ->
+        when {
+            line.startsWith("## ") -> {
+                Text(
+                    line.removePrefix("## "),
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 42.sp,
+                )
+                Spacer(Modifier.height(20.dp))
+            }
+            line.startsWith("- ") -> {
+                Text(
+                    text = buildMarkdownText("•  ${line.removePrefix("- ")}"),
+                    fontSize = 24.sp,
+                    lineHeight = 34.sp,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            line.isBlank() -> Spacer(Modifier.height(18.dp))
+            else -> Text(buildMarkdownText(line), fontSize = 24.sp, lineHeight = 34.sp)
+        }
+    }
+}
+
+private fun buildMarkdownText(value: String): AnnotatedString =
+    buildAnnotatedString {
+        var index = 0
+        var bold = false
+        var italic = false
+        while (index < value.length) {
+            when {
+                value.startsWith("**", index) -> {
+                    bold = !bold
+                    index += 2
+                }
+                value[index] == '_' -> {
+                    italic = !italic
+                    index += 1
+                }
+                else -> {
+                    val next =
+                        listOf(value.indexOf("**", index), value.indexOf('_', index))
+                            .filter { it >= 0 }
+                            .minOrNull() ?: value.length
+                    withStyle(
+                        SpanStyle(
+                            fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,
+                            fontStyle = if (italic) FontStyle.Italic else FontStyle.Normal,
+                        ),
+                    ) { append(value.substring(index, next)) }
+                    index = next
+                }
+            }
+        }
+    }
 
 @Composable
 @Suppress("CyclomaticComplexMethod", "LongMethod", "ReturnCount")
 private fun ChecklistEditor(
     repository: NoteRepository,
     existingId: String?,
+    startsInEditMode: Boolean,
     syncStatus: StateFlow<RelaySyncStatus>,
     syncHealth: StateFlow<RelaySyncHealth>,
     onBack: () -> Unit,
@@ -568,6 +682,7 @@ private fun ChecklistEditor(
     var savedItems by remember(existingId) { mutableStateOf(existing?.items.orEmpty()) }
     var newItemText by remember { mutableStateOf("") }
     var saveError by remember(existingId) { mutableStateOf<String?>(null) }
+    var isEditing by remember(existingId) { mutableStateOf(startsInEditMode) }
     val coroutineScope = rememberCoroutineScope()
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
@@ -596,15 +711,12 @@ private fun ChecklistEditor(
         )
     }
 
-    LaunchedEffect(title, items) {
-        delay(500)
-        saveIfNeeded()
-    }
-
     val activeItems = items.filterNot(ChecklistItem::done)
     val completedItems = items.filter(ChecklistItem::done)
-    Column(Modifier.fillMaxSize().testTag("checklist_editor")) {
-        Column(Modifier.weight(1f).padding(horizontal = 24.dp)) {
+    Column(
+        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag("checklist_editor"),
+    ) {
+        Column(Modifier.padding(horizontal = 24.dp)) {
             Spacer(Modifier.height(20.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -621,6 +733,25 @@ private fun ChecklistEditor(
                 Spacer(Modifier.weight(1f))
                 SyncStatus(currentSyncStatus, currentSyncHealth)
                 Spacer(Modifier.width(20.dp))
+                IconButton(
+                    onClick = {
+                        coroutineScope.launch {
+                            if (isEditing) {
+                                if (saveIfNeeded() || (title == savedTitle && items == savedItems)) isEditing = false
+                            } else {
+                                isEditing = true
+                            }
+                        }
+                    },
+                    modifier = Modifier.size(40.dp).testTag("checklist_edit_save"),
+                ) {
+                    Icon(
+                        painter = painterResource(if (isEditing) R.drawable.ic_save else R.drawable.ic_edit),
+                        contentDescription = if (isEditing) "Save checklist" else "Edit checklist",
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = {
                         coroutineScope.launch {
@@ -669,71 +800,27 @@ private fun ChecklistEditor(
             saveError?.let {
                 Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.testTag("checklist_save_error"))
             }
-            OutlinedTextField(
-                value = title,
-                onValueChange = { title = it },
-                modifier = Modifier.fillMaxWidth().testTag("checklist_title"),
-                placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
-                textStyle =
-                    androidx.compose.ui.text.TextStyle(
-                        fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
-                        fontSize = 34.sp,
-                    ),
-                singleLine = true,
-            )
-            Text(
-                "${completedItems.size} of ${items.size} packed",
-                modifier = Modifier.padding(top = 18.dp),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                fontSize = 17.sp,
-            )
-            Spacer(Modifier.height(22.dp))
-            activeItems.forEach { item ->
-                ChecklistItemRow(
-                    item = item,
-                    onToggle = {
-                        items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
-                        coroutineScope.launch { saveIfNeeded(items) }
-                    },
-                    onChange = { text ->
-                        items = items.map { if (it.id == item.id) it.copy(text = text) else it }
-                    },
-                    onDelete = {
-                        items = items.filterNot { it.id == item.id }
-                        coroutineScope.launch { saveIfNeeded(items) }
-                    },
-                )
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 32.sp)
-                Spacer(Modifier.width(18.dp))
+            if (isEditing) {
                 OutlinedTextField(
-                    value = newItemText,
-                    onValueChange = { newItemText = it },
-                    modifier = Modifier.weight(1f).testTag("checklist_add_item"),
-                    placeholder = { Text("Add item", fontSize = 18.sp) },
+                    value = title,
+                    onValueChange = { title = it },
+                    modifier = Modifier.fillMaxWidth().testTag("checklist_title"),
+                    placeholder = { Text("Untitled", style = MaterialTheme.typography.displayLarge, fontSize = 34.sp) },
+                    textStyle =
+                        androidx.compose.ui.text.TextStyle(
+                            fontFamily = androidx.compose.ui.text.font.FontFamily.Serif,
+                            fontSize = 34.sp,
+                        ),
                     singleLine = true,
                 )
                 Text(
-                    "Add",
-                    modifier =
-                        Modifier
-                            .padding(start = 12.dp)
-                            .clickable {
-                                val text = newItemText.trim()
-                                if (text.isNotEmpty()) {
-                                    items += ChecklistItem(UUID.randomUUID().toString(), text, false)
-                                    newItemText = ""
-                                    coroutineScope.launch { saveIfNeeded(items) }
-                                }
-                            }.testTag("checklist_add_button"),
-                    color = MaterialTheme.colorScheme.primary,
+                    "${completedItems.size} of ${items.size} packed",
+                    modifier = Modifier.padding(top = 18.dp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 17.sp,
                 )
-            }
-            if (completedItems.isNotEmpty()) {
-                Spacer(Modifier.height(28.dp))
-                SectionTitle("Completed ${completedItems.size}")
-                completedItems.forEach { item ->
+                Spacer(Modifier.height(22.dp))
+                activeItems.forEach { item ->
                     ChecklistItemRow(
                         item = item,
                         onToggle = {
@@ -749,22 +836,133 @@ private fun ChecklistEditor(
                         },
                     )
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 32.sp)
+                    Spacer(Modifier.width(18.dp))
+                    OutlinedTextField(
+                        value = newItemText,
+                        onValueChange = { newItemText = it },
+                        modifier = Modifier.weight(1f).testTag("checklist_add_item"),
+                        placeholder = { Text("Add item", fontSize = 18.sp) },
+                        singleLine = true,
+                    )
+                    Text(
+                        "Add",
+                        modifier =
+                            Modifier
+                                .padding(start = 12.dp)
+                                .clickable {
+                                    val text = newItemText.trim()
+                                    if (text.isNotEmpty()) {
+                                        items += ChecklistItem(UUID.randomUUID().toString(), text, false)
+                                        newItemText = ""
+                                        coroutineScope.launch { saveIfNeeded(items) }
+                                    }
+                                }.testTag("checklist_add_button"),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                if (completedItems.isNotEmpty()) {
+                    Spacer(Modifier.height(28.dp))
+                    SectionTitle("Completed ${completedItems.size}")
+                    completedItems.forEach { item ->
+                        ChecklistItemRow(
+                            item = item,
+                            onToggle = {
+                                items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
+                                coroutineScope.launch { saveIfNeeded(items) }
+                            },
+                            onChange = { text ->
+                                items = items.map { if (it.id == item.id) it.copy(text = text) else it }
+                            },
+                            onDelete = {
+                                items = items.filterNot { it.id == item.id }
+                                coroutineScope.launch { saveIfNeeded(items) }
+                            },
+                        )
+                    }
+                }
+            } else {
+                ChecklistReadContent(
+                    title = title,
+                    items = items,
+                    onToggle = { item ->
+                        items = items.map { if (it.id == item.id) it.copy(done = !it.done) else it }
+                        coroutineScope.launch { saveIfNeeded(items) }
+                    },
+                )
             }
         }
+        if (isEditing) {
+            Text(
+                "Clear completed",
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surfaceVariant)
+                        .clickable {
+                            items = items.filterNot(ChecklistItem::done)
+                            coroutineScope.launch { saveIfNeeded(items) }
+                        }.padding(vertical = 26.dp)
+                        .testTag("clear_completed"),
+                color = MaterialTheme.colorScheme.primary,
+                fontSize = 28.sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ChecklistReadContent(
+    title: String,
+    items: List<ChecklistItem>,
+    onToggle: (ChecklistItem) -> Unit,
+) {
+    val activeItems = items.filterNot(ChecklistItem::done)
+    val completedItems = items.filter(ChecklistItem::done)
+    Text(
+        title.ifBlank { "Untitled checklist" },
+        style = MaterialTheme.typography.displayLarge,
+        fontSize = 56.sp,
+        fontFamily = FontFamily.Serif,
+        fontWeight = FontWeight.Bold,
+    )
+    Text(
+        "${completedItems.size} of ${items.size} packed",
+        modifier = Modifier.padding(top = 14.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        fontSize = 17.sp,
+    )
+    Spacer(Modifier.height(20.dp))
+    activeItems.forEach { item -> ChecklistReadItem(item, onToggle) }
+    if (completedItems.isNotEmpty()) {
+        Spacer(Modifier.height(28.dp))
+        SectionTitle("Completed ${completedItems.size}")
+        completedItems.forEach { item -> ChecklistReadItem(item, onToggle) }
+    }
+}
+
+@Composable
+private fun ChecklistReadItem(
+    item: ChecklistItem,
+    onToggle: (ChecklistItem) -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onToggle(item) }.padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         Text(
-            "Clear completed",
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .clickable {
-                        items = items.filterNot(ChecklistItem::done)
-                        coroutineScope.launch { saveIfNeeded(items) }
-                    }.padding(vertical = 26.dp)
-                    .testTag("clear_completed"),
+            if (item.done) "☑" else "☐",
             color = MaterialTheme.colorScheme.primary,
+            fontSize = 27.sp,
+        )
+        Spacer(Modifier.width(18.dp))
+        Text(
+            item.text,
             fontSize = 28.sp,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            textDecoration = if (item.done) TextDecoration.LineThrough else TextDecoration.None,
+            color = if (item.done) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
         )
     }
 }

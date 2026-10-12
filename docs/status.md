@@ -239,6 +239,21 @@
   pass. The connected-device test task remains blocked locally because the
   Android device bridge reports access denied.
 
+## Read-only notes and checklists update (2026-10-12)
+
+- Existing notes and checklists now open as rendered, paper-like read views;
+  newly created items still begin in edit mode. Compact top-bar Edit and Save
+  actions replace the previous always-editable flow.
+- Removed the 500 ms editor autosave. Content updates now persist and relay-sync
+  only from Save or Back from edit; direct checklist completion toggles remain
+  an intentional immediate-save exception.
+- Added supported markdown rendering for headings, bold, italic, and bullet
+  lists, plus read-only checklist rows and a Compose regression test that
+  verifies no note write occurs before Save.
+- `:androidApp:compileDebugKotlin`,
+  `:androidApp:compileDebugAndroidTestKotlin`, and `:androidApp:ktlintCheck`
+  pass. Device execution remains unavailable due to local Android bridge access.
+
 ## v1.1 signer update (2026-10-12)
 
 - Added a portable `Signer` contract and `LocalKeySigner`; existing local-key

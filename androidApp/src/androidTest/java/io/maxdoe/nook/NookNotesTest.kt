@@ -111,6 +111,38 @@ class NookNotesTest {
     }
 
     @Test
+    fun existingNoteOpensReadOnlyAndSavesOnlyWhenRequested() {
+        val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_garden").performClick()
+        composeRule.onNodeWithText("Garden").assertIsDisplayed()
+        composeRule
+            .onNodeWithContentDescription("Edit note")
+            .performClick()
+        composeRule
+            .onNodeWithTag("note_title")
+            .performTextInput(" plans")
+        check(
+            (
+                repository.notes.value
+                    .single()
+                    .payload as NotePayload
+            ).title == "Garden",
+        )
+        composeRule.onNodeWithContentDescription("Save note").performClick()
+        composeRule.waitUntil {
+            (
+                repository.notes.value
+                    .single()
+                    .payload as? NotePayload
+            )?.title == "Garden plans"
+        }
+        composeRule.onNodeWithContentDescription("Edit note").assertIsDisplayed()
+    }
+
+    @Test
     fun pinningAnUnchangedChecklistPersistsAndUsesAccessibleEditorActions() {
         val repository = repository().also { runBlocking { it.createChecklist("packing", "Packing") } }
 
