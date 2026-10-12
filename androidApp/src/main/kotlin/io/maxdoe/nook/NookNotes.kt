@@ -437,7 +437,9 @@ private fun NoteEditor(
                 "‹",
                 modifier =
                     Modifier.clickable {
-                        coroutineScope.launch { if (saveIfNeeded()) onBack() }
+                        coroutineScope.launch {
+                            if ((title == savedTitle && body.text == savedBody) || saveIfNeeded()) onBack()
+                        }
                     },
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 40.sp,
@@ -582,7 +584,9 @@ private fun ChecklistEditor(
                     "‹",
                     modifier =
                         Modifier.clickable {
-                            coroutineScope.launch { if (saveIfNeeded()) onBack() }
+                            coroutineScope.launch {
+                                if ((title == savedTitle && items == savedItems) || saveIfNeeded()) onBack()
+                            }
                         },
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 40.sp,

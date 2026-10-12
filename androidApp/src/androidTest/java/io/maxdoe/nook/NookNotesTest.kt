@@ -19,6 +19,7 @@ import io.maxdoe.nook.notes.EpochSecondsClock
 import io.maxdoe.nook.notes.NookEventCodec
 import io.maxdoe.nook.notes.NoteRepository
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
 
@@ -30,8 +31,10 @@ class NookNotesTest {
     fun search_filtersTheLiveNoteList() {
         val repository =
             repository().also {
-                it.createNote("garden", "Garden ideas", "Plant spring beds")
-                it.createNote("travel", "Packing", "Passport")
+                runBlocking {
+                    it.createNote("garden", "Garden ideas", "Plant spring beds")
+                    it.createNote("travel", "Packing", "Passport")
+                }
             }
 
         composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
@@ -45,15 +48,17 @@ class NookNotesTest {
     fun checklistCanBeSelectedFromTheAddMenuAndShowsItsProgress() {
         val repository =
             repository().also {
-                it.createChecklist(
-                    noteId = "packing",
-                    title = "Packing",
-                    items =
-                        listOf(
-                            ChecklistItem("passport", "Passport", false),
-                            ChecklistItem("socks", "Socks", true),
-                        ),
-                )
+                runBlocking {
+                    it.createChecklist(
+                        noteId = "packing",
+                        title = "Packing",
+                        items =
+                            listOf(
+                                ChecklistItem("passport", "Passport", false),
+                                ChecklistItem("socks", "Socks", true),
+                            ),
+                    )
+                }
             }
 
         composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
@@ -68,11 +73,13 @@ class NookNotesTest {
     fun checkingAnItemMovesItToTheCompletedSection() {
         val repository =
             repository().also {
-                it.createChecklist(
-                    "packing",
-                    "Packing",
-                    listOf(ChecklistItem("passport", "Passport", false)),
-                )
+                runBlocking {
+                    it.createChecklist(
+                        "packing",
+                        "Packing",
+                        listOf(ChecklistItem("passport", "Passport", false)),
+                    )
+                }
             }
 
         composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
@@ -80,6 +87,31 @@ class NookNotesTest {
         composeRule.onNodeWithTag("note_packing").performClick()
         composeRule.onNodeWithTag("checklist_toggle_passport").performClick()
         composeRule.onNodeWithText("COMPLETED 1").assertIsDisplayed()
+    }
+
+    @Test
+    fun backLeavesAnUnchangedNoteEditor() {
+        val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_garden").performClick()
+        composeRule.onNodeWithText("‹").performClick()
+
+        composeRule.onNodeWithTag("notes_list").assertIsDisplayed()
+    }
+
+    @Test
+    fun backLeavesAnUntouchedNewNoteEditor() {
+        val repository = repository()
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("new_note").performClick()
+        composeRule.onNodeWithText("Note").performClick()
+        composeRule.onNodeWithText("‹").performClick()
+
+        composeRule.onNodeWithTag("notes_list").assertIsDisplayed()
     }
 
     @Test
@@ -98,7 +130,7 @@ class NookNotesTest {
 
     @Test
     fun unmatchedSearchShowsNoResultsState() {
-        val repository = repository().also { it.createNote("garden", "Garden", "Plant seeds") }
+        val repository = repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
 
         composeRule.setContent {
             NookTheme {

@@ -2,7 +2,6 @@
 
 package io.maxdoe.nook
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -16,6 +15,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -26,6 +26,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -41,10 +43,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Fill
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -211,7 +212,7 @@ private fun WelcomeScreen(
                     lineHeight = 27.sp,
                 )
             }
-            Column {
+            Column(Modifier.windowInsetsPadding(WindowInsets.navigationBars)) {
                 PrimaryButton("Create a new key", onCreateKey)
                 Spacer(Modifier.height(12.dp))
                 OutlinedButton(
@@ -223,69 +224,29 @@ private fun WelcomeScreen(
                 }
                 Text(
                     "Sign in with a signer app",
-                    modifier = Modifier.fillMaxWidth().clickable(onClick = onSigner).padding(vertical = 22.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable(onClick = onSigner)
+                            .padding(vertical = 22.dp),
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 17.sp,
                     fontWeight = FontWeight.SemiBold,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                 )
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    "Notes are encrypted on your device before they leave it.",
-                    modifier = Modifier.fillMaxWidth(),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 13.sp,
-                )
                 Spacer(Modifier.height(24.dp))
             }
         }
-        OutlinedButton(
+        IconButton(
             onClick = onThemeToggle,
             modifier = Modifier.align(Alignment.TopEnd).padding(top = 10.dp).testTag("theme_toggle"),
-            shape = RoundedCornerShape(18.dp),
-            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 2.dp),
         ) {
-            Text(if (isDarkTheme) "☀ Light" else "☾ Dark", fontSize = 13.sp)
+            Icon(
+                painter = painterResource(if (isDarkTheme) R.drawable.ic_theme_sun else R.drawable.ic_theme_moon),
+                contentDescription = if (isDarkTheme) "Switch to light theme" else "Switch to dark theme",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
-    }
-}
-
-@Composable
-private fun SignerInfoScreen(
-    onBack: () -> Unit,
-    onContinue: () -> Unit,
-) {
-    Column(screenModifier().testTag(LOGIN_ROOT_TEST_TAG)) {
-        Text(
-            "‹ Back",
-            Modifier.padding(top = 24.dp).clickable(onClick = onBack),
-            color = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.height(68.dp))
-        Text("Use a signer app", style = MaterialTheme.typography.displayLarge, fontSize = 38.sp)
-        Spacer(Modifier.height(18.dp))
-        Text(
-            "Your key stays in your signer app. Choose to remember the permissions there, so Nook can sync quietly.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 18.sp,
-            lineHeight = 27.sp,
-        )
-        Spacer(Modifier.weight(1f))
-        PrimaryButton("Choose signer app", onContinue, "signer_continue")
-        Spacer(Modifier.height(24.dp))
-    }
-}
-
-@Composable
-private fun SignerPairingScreen() {
-    Column(
-        screenModifier(),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text("Waiting for signer", style = MaterialTheme.typography.displayLarge, fontSize = 32.sp)
-        Spacer(Modifier.height(12.dp))
-        Text("Approve the account in your signer app.", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -431,46 +392,9 @@ private fun screenModifier(): Modifier =
 
 @Composable
 private fun NookLogo() {
-    Canvas(Modifier.size(64.dp)) {
-        val px = this.density
-
-        fun dp(value: Float) = value * px
-        drawRoundRect(
-            Color(0xFF1E4D4A),
-            cornerRadius =
-                androidx.compose.ui.geometry
-                    .CornerRadius(dp(14f)),
-        )
-        val paper = Color(0xFFF6F1E7)
-        drawRect(
-            paper,
-            androidx.compose.ui.geometry
-                .Offset(dp(17f), dp(14.5f)),
-            androidx.compose.ui.geometry
-                .Size(dp(30f), dp(37.5f)),
-        )
-        val fold =
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(dp(38f), dp(14.5f))
-                lineTo(dp(47f), dp(23.5f))
-                lineTo(dp(38f), dp(23.5f))
-                close()
-            }
-        drawPath(fold, Color(0xFFCFC5AE), style = Fill)
-        drawCircle(
-            Color(0xFF1E4D4A),
-            dp(4f),
-            androidx.compose.ui.geometry
-                .Offset(dp(32f), dp(34f)),
-        )
-        val keyhole =
-            androidx.compose.ui.graphics.Path().apply {
-                moveTo(dp(29.5f), dp(36.5f))
-                lineTo(dp(34.5f), dp(36.5f))
-                lineTo(dp(36f), dp(46f))
-                lineTo(dp(28f), dp(46f))
-                close()
-            }
-        drawPath(keyhole, Color(0xFF1E4D4A), style = Fill)
-    }
+    androidx.compose.foundation.Image(
+        painter = painterResource(R.drawable.nook_logo),
+        contentDescription = "Nook logo",
+        modifier = Modifier.size(64.dp),
+    )
 }

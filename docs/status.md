@@ -166,6 +166,29 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Direct signer selection update (2026-10-12)
+
+- The Welcome signer action now launches Android's NIP-55 signer selection
+  directly; the redundant in-app signer explanation and waiting screens were
+  removed.
+- Pairing success and all existing cancellation, unavailable-signer, and
+  malformed-result handling remain unchanged.
+- Added Compose coverage for the direct Welcome action; `:androidApp:testDebugUnitTest`,
+  `:androidApp:compileDebugAndroidTestKotlin`, and `:androidApp:ktlintCheck` pass.
+
+## Welcome visual alignment update (2026-10-12)
+
+- Replaced the hand-drawn Welcome mark with the supplied Nook SVG converted to
+  an Android vector resource, removed the encryption footer, and changed the
+  theme control to a single accessible moon/sun action icon. Welcome actions
+  now reserve the Android navigation-bar inset so system controls cannot cover
+  them.
+- Added Welcome UI assertions for the logo, theme-toggle state, and removed
+  footer. `:androidApp:assembleDebug`,
+  `:androidApp:compileDebugAndroidTestKotlin`, and
+  `:androidApp:ktlintCheck` pass; connected-device execution remains blocked
+  locally by Android device bridge access.
+
 ## Signer reliability fix (2026-10-12)
 
 - Made Nook event encryption, signing, decryption, repository mutations, and
@@ -175,6 +198,18 @@
   signer save requests remain in the editor with a recoverable error message.
 - Shared and Android unit tests plus debug assembly pass. Real-device Amber
   approval and rejection checks remain pending.
+
+## Editor back-navigation fix (2026-10-12)
+
+- Fixed the Notes and Checklist editors' top-left Back controls so unchanged
+  editors and untouched drafts return to the Notes list; save failures still
+  keep the editor open with its recoverable error message.
+- Added Compose UI regression coverage for leaving an unchanged note and an
+  untouched new note; updated existing test fixtures to invoke suspend
+  repository writes correctly.
+- `:androidApp:compileDebugAndroidTestKotlin` and `:androidApp:ktlintCheck`
+  pass. The connected-device test task remains blocked locally because the
+  Android device bridge reports access denied.
 
 ## v1.1 signer update (2026-10-12)
 
