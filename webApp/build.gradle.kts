@@ -16,7 +16,10 @@ kotlin {
 
     sourceSets {
         wasmJsMain.dependencies {
+            implementation(project(":shared"))
             implementation("org.jetbrains.kotlinx:kotlinx-browser:0.5.0")
+            implementation(libs.coroutines.core)
+            implementation(libs.serialization.json)
         }
     }
 }

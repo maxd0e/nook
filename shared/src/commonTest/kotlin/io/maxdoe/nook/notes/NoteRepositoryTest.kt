@@ -3,7 +3,7 @@ package io.maxdoe.nook.notes
 import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.data.EncryptedEventStore
 import io.maxdoe.nook.data.StoredNostrEvent
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -15,7 +15,7 @@ class NoteRepositoryTest {
 
     @Test
     fun save_marksEncryptedEventDirtyAndListsPinnedFirst() =
-        runBlocking {
+        runTest {
             val store = FakeEncryptedEventStore()
             val repository = NoteRepository(store, codec, EpochSecondsClock { 100 })
 
@@ -30,7 +30,7 @@ class NoteRepositoryTest {
 
     @Test
     fun newestWinsTiesUseLowestIdAndTombstoneRemovesItem() =
-        runBlocking {
+        runTest {
             val store = FakeEncryptedEventStore()
             val repository = NoteRepository(store, codec, EpochSecondsClock { 50 })
             val first = codec.build("same", NotePayload("A", "first", false, 1, 1), 20)
@@ -54,7 +54,7 @@ class NoteRepositoryTest {
 
     @Test
     fun noteCommands_createEditPinAndDeleteTheResolvedNote() =
-        runBlocking {
+        runTest {
             val store = FakeEncryptedEventStore()
             val repository = NoteRepository(store, codec, EpochSecondsClock { 100 })
 
@@ -79,7 +79,7 @@ class NoteRepositoryTest {
 
     @Test
     fun checklistCommands_updateItemsAndClearCompletedItems() =
-        runBlocking {
+        runTest {
             val store = FakeEncryptedEventStore()
             val repository = NoteRepository(store, codec, EpochSecondsClock { 100 })
 

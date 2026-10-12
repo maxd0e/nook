@@ -15,10 +15,13 @@ kotlin {
     }
     iosArm64()
     iosSimulatorArm64()
+    wasmJs {
+        browser()
+        binaries.library()
+    }
 
     sourceSets {
         commonMain.dependencies {
-            implementation(libs.quartz)
             implementation(libs.serialization.json)
             implementation(libs.coroutines.core)
             implementation(libs.sqldelight.runtime)
@@ -27,12 +30,19 @@ kotlin {
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)
+            implementation(libs.coroutines.test)
         }
         androidMain.dependencies {
+            implementation(libs.quartz)
             implementation(libs.ktor.client.okhttp)
         }
         iosMain.dependencies {
+            implementation(libs.quartz)
             implementation(libs.ktor.client.darwin)
+        }
+        wasmJsMain.dependencies {
+            implementation(libs.ktor.client.js.wasm)
+            implementation(npm("nostr-tools", "2.25.2"))
         }
     }
 }

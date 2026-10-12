@@ -15,7 +15,9 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
+import kotlin.coroutines.coroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -27,7 +29,7 @@ class RelaySyncTest {
 
     @Test
     fun initialSync_downloadsAndStoresEvents() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport()
             val sync = sync(repository, relay)
@@ -53,7 +55,7 @@ class RelaySyncTest {
 
     @Test
     fun edit_isPublishedAndReceivedBySecondDevice() =
-        runBlocking {
+        runTest {
             val firstRepository = repository()
             val secondRepository = repository()
             val relay = FakeRelayTransport()
@@ -82,7 +84,7 @@ class RelaySyncTest {
 
     @Test
     fun dirtyOfflineEdit_isSentAfterReconnect() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport(available = false)
             val saved = repository.repository.save("offline", NotePayload("Offline", "Queued", false, 1, 1))
@@ -104,7 +106,7 @@ class RelaySyncTest {
 
     @Test
     fun status_movesFromOfflineToSyncingThenSyncedAfterRelayCatchUp() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport(available = false)
             val sync = sync(repository, relay)
@@ -121,7 +123,7 @@ class RelaySyncTest {
 
     @Test
     fun failedConnection_exposesSafeFailureAndRecoveryClearsIt() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport(available = false)
             val sync = sync(repository, relay)
@@ -155,7 +157,7 @@ class RelaySyncTest {
 
     @Test
     fun closedSubscription_clearsSyncedStateAndReconnects() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport()
             val sync = sync(repository, relay)
@@ -173,7 +175,7 @@ class RelaySyncTest {
 
     @Test
     fun tombstoneRemovesNoteOnOtherDevice() =
-        runBlocking {
+        runTest {
             val firstRepository = repository()
             val secondRepository = repository()
             val relay = FakeRelayTransport()
@@ -200,7 +202,7 @@ class RelaySyncTest {
 
     @Test
     fun duplicateIncomingEvent_isHandledOnceAndSuccessfulAcknowledgementCleansIt() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val relay = FakeRelayTransport()
             val sync = sync(repository, relay)
@@ -226,7 +228,7 @@ class RelaySyncTest {
 
     @Test
     fun stop_waitsForRelayCleanupBeforeItAllowsRestart() =
-        runBlocking {
+        runTest {
             val repository = repository()
             val closeGate = Channel<Unit>(1)
             val relay = FakeRelayTransport(delayedFirstClose = closeGate)
@@ -250,7 +252,7 @@ class RelaySyncTest {
         return TestRepository(NoteRepository(store, codec, EpochSecondsClock { 100 }), store)
     }
 
-    private fun sync(
+    private suspend fun sync(
         testRepository: TestRepository,
         relay: FakeRelayTransport,
     ): RelaySync =
@@ -258,7 +260,7 @@ class RelaySyncTest {
             repository = testRepository.repository,
             publicKey = keyPair.publicKeyHex,
             transport = relay,
-            scope = CoroutineScope(Dispatchers.Default),
+            scope = CoroutineScope(coroutineContext),
             relayUrls = listOf("wss://fake"),
             debounceMillis = 5,
             reconnectDelayMillis = 5,
@@ -268,6 +270,7 @@ class RelaySyncTest {
         repeat(100) {
             if (predicate()) return
             delay(5)
+            yield()
         }
         assertTrue(predicate(), "Timed out waiting for relay state")
     }

@@ -1,7 +1,7 @@
 package io.maxdoe.nook.nostr
 
 import io.maxdoe.nook.crypto.NostrKeyPair
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 class LocalKeySignerTest {
     @Test
     fun localSigner_signsAndRoundTripsSelfEncryptedContent() {
-        runBlocking {
+        runTest {
             val signer = LocalKeySigner(NostrKeyPair.generate())
             val event = signer.signEvent(UnsignedNostrEvent(100, 30_078, content = "ciphertext"))
 

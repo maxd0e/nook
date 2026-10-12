@@ -4,7 +4,7 @@ import io.maxdoe.nook.crypto.Nip44Cipher
 import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.UnsignedNostrEvent
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -70,7 +70,7 @@ class NookPayloadEventTest {
 
     @Test
     fun builtEvent_isEncryptedNookEventAndParsesBack() =
-        runBlocking {
+        runTest {
             val payload = NotePayload("Secret", "private body", false, 10, 11)
 
             val event = codec.build(noteId = "abc-123", payload = payload, createdAt = 12)
@@ -86,7 +86,7 @@ class NookPayloadEventTest {
 
     @Test
     fun foreignOrUndecryptableEvents_areIgnored() =
-        runBlocking {
+        runTest {
             val payload = NookPayloadJson.encode(NotePayload("Title", "Body", false, 1, 1))
             val encrypted = Nip44Cipher.encryptToSelf(payload, keyPair)
             val foreign =
@@ -106,7 +106,7 @@ class NookPayloadEventTest {
 
     @Test
     fun eventSignedByAnotherKey_isIgnoredEvenWhenCiphertextDecrypts() =
-        runBlocking {
+        runTest {
             val encrypted =
                 Nip44Cipher.encryptToSelf(
                     NookPayloadJson.encode(NotePayload("Title", "Body", false, 1, 1)),
