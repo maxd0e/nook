@@ -277,6 +277,12 @@
   `:androidApp:compileDebugAndroidTestKotlin`, and `:androidApp:ktlintCheck`
   pass. Device execution remains unavailable due to local Android bridge access.
 
+## Editor navigation-bar inset fix (2026-10-12)
+
+- The note formatting toolbar and checklist bottom action area now reserve the
+  Android navigation-bar inset, keeping their actions above the system Back and
+  Home controls on edge-to-edge devices.
+
 ## v1.1 signer update (2026-10-12)
 
 - Added a portable `Signer` contract and `LocalKeySigner`; existing local-key
