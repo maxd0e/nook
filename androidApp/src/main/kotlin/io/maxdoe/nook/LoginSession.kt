@@ -15,10 +15,6 @@ sealed interface LoginScreen {
     ) : LoginScreen
 
     data object SignedIn : LoginScreen
-
-    data object SignerInfo : LoginScreen
-
-    data object PairingSigner : LoginScreen
 }
 
 sealed interface LoginCredentials {
@@ -91,15 +87,6 @@ class LoginSessionController(
 
     fun createKey() {
         screen = LoginScreen.BackupKey(keyCodec.create())
-    }
-
-    fun showSignerInfo() {
-        pasteError = null
-        screen = LoginScreen.SignerInfo
-    }
-
-    fun beginSignerPairing() {
-        screen = LoginScreen.PairingSigner
     }
 
     fun completeSignerPairing(

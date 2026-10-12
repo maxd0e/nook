@@ -100,8 +100,36 @@ fun NookHome(
                         updateScreen()
                     },
                     onSigner = {
-                        controller.showSignerInfo()
-                        updateScreen()
+                        coroutineScope.launch {
+                            val result =
+                                signerRequester.request(
+                                    Nip55Request(type = "get_public_key", permissions = NIP55_PERMISSIONS),
+                                )
+                            when (result) {
+                                is Nip55Result.Success -> {
+                                    controller.completeSignerPairing(
+                                        result.result.lowercase(),
+                                        result.packageName.orEmpty(),
+                                    )
+                                    if (controller.screen == LoginScreen.SignedIn) {
+                                        noteSession =
+                                            sessionStore.credentialsOrNull()?.let {
+                                                NookNoteSession(it, context, signerRequester)
+                                            }
+                                    }
+                                }
+                                Nip55Result.Rejected -> controller.signerPairingFailed("Signer pairing was cancelled.")
+                                Nip55Result.Unavailable ->
+                                    controller.signerPairingFailed(
+                                        "No signer app is installed. Install one and try again.",
+                                    )
+                                is Nip55Result.Failed ->
+                                    controller.signerPairingFailed(
+                                        "Signer pairing failed. Try again.",
+                                    )
+                            }
+                            updateScreen()
+                        }
                     },
                     isDarkTheme = isDarkTheme,
                     onThemeToggle = onThemeToggle,
@@ -140,48 +168,6 @@ fun NookHome(
                     }
                     updateScreen()
                 })
-            LoginScreen.SignerInfo ->
-                SignerInfoScreen(
-                    onBack = {
-                        controller.restore()
-                        updateScreen()
-                    },
-                    onContinue = {
-                        controller.beginSignerPairing()
-                        updateScreen()
-                        coroutineScope.launch {
-                            val result =
-                                signerRequester.request(
-                                    Nip55Request(type = "get_public_key", permissions = NIP55_PERMISSIONS),
-                                )
-                            when (result) {
-                                is Nip55Result.Success -> {
-                                    controller.completeSignerPairing(
-                                        result.result.lowercase(),
-                                        result.packageName.orEmpty(),
-                                    )
-                                    if (controller.screen == LoginScreen.SignedIn) {
-                                        noteSession =
-                                            sessionStore.credentialsOrNull()?.let {
-                                                NookNoteSession(it, context, signerRequester)
-                                            }
-                                    }
-                                }
-                                Nip55Result.Rejected -> controller.signerPairingFailed("Signer pairing was cancelled.")
-                                Nip55Result.Unavailable ->
-                                    controller.signerPairingFailed(
-                                        "No signer app is installed. Install one and try again.",
-                                    )
-                                is Nip55Result.Failed ->
-                                    controller.signerPairingFailed(
-                                        "Signer pairing failed. Try again.",
-                                    )
-                            }
-                            updateScreen()
-                        }
-                    },
-                )
-            LoginScreen.PairingSigner -> SignerPairingScreen()
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
                     NookNotes(session.repository, session.syncStatus, session.syncHealth) {
