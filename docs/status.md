@@ -166,6 +166,21 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Private-key backup copy update (2026-10-12)
+
+- The one-time "Save your private key" screen now includes a full-width
+  "Copy private key" action that copies the displayed `nsec` to the Android
+  clipboard without persisting any additional key material, plus a Back route
+  that discards the unsaved generated key and returns to Welcome.
+- Added controller and Compose coverage for the backup actions and Back route.
+  `:androidApp:testDebugUnitTest`, `:androidApp:assembleDebug`, and
+  `:androidApp:ktlintCheck` pass.
+- Corrected the backup Back control's malformed chevron glyph; it now matches
+  the existing Paste-key Back control.
+- `:androidApp:compileDebugAndroidTestKotlin` remains blocked by the existing
+  unresolved `assertDoesNotExist` import in `NookNotesTest`, outside this
+  change.
+
 ## Editor and checklist visual refinement update (2026-10-12)
 
 - Reduced the note and checklist editor type scale and spacing to match the

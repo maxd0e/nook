@@ -1,6 +1,8 @@
 package io.maxdoe.nook
 
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import org.junit.Assert.assertEquals
@@ -31,6 +33,39 @@ class NookHomeSignerTest {
             "[{\"type\":\"get_public_key\"},{\"type\":\"sign_event\",\"kind\":30078},{\"type\":\"nip44_encrypt\"},{\"type\":\"nip44_decrypt\"}]",
             requester.request?.permissions,
         )
+    }
+
+    @Test
+    fun createKey_showsCopyPrivateKeyAction() {
+        composeRule.setContent {
+            NookTheme {
+                NookHome(
+                    sessionStore = FakeLoginSessionStore(),
+                    signerRequester = RecordingSignerRequester(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Create a new key").performClick()
+
+        composeRule.onNodeWithTag("backup_copy_private_key").assertIsDisplayed()
+    }
+
+    @Test
+    fun backupBack_returnsToWelcome() {
+        composeRule.setContent {
+            NookTheme {
+                NookHome(
+                    sessionStore = FakeLoginSessionStore(),
+                    signerRequester = RecordingSignerRequester(),
+                )
+            }
+        }
+
+        composeRule.onNodeWithText("Create a new key").performClick()
+        composeRule.onNodeWithTag("backup_back").performClick()
+
+        composeRule.onNodeWithText("Create a new key").assertIsDisplayed()
     }
 
     private class RecordingSignerRequester : Nip55ForegroundRequester {

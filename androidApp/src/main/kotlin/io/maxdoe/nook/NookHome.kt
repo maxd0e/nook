@@ -2,6 +2,8 @@
 
 package io.maxdoe.nook
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -156,19 +158,26 @@ fun NookHome(
                     },
                 )
             is LoginScreen.BackupKey ->
-                BackupKeyScreen(current.nsec, current.savedConfirmed, {
-                    controller.setBackupConfirmed(it)
-                    updateScreen()
-                }, {
-                    controller.completeBackup()
-                    if (controller.screen ==
-                        LoginScreen.SignedIn
-                    ) {
-                        noteSession =
-                            sessionStore.credentialsOrNull()?.let { NookNoteSession(it, context, signerRequester) }
-                    }
-                    updateScreen()
-                })
+                BackupKeyScreen(
+                    nsec = current.nsec,
+                    confirmed = current.savedConfirmed,
+                    onBack = {
+                        controller.cancelBackup()
+                        updateScreen()
+                    },
+                    onConfirmChange = {
+                        controller.setBackupConfirmed(it)
+                        updateScreen()
+                    },
+                    onContinue = {
+                        controller.completeBackup()
+                        if (controller.screen == LoginScreen.SignedIn) {
+                            noteSession =
+                                sessionStore.credentialsOrNull()?.let { NookNoteSession(it, context, signerRequester) }
+                        }
+                        updateScreen()
+                    },
+                )
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
                     NookNotes(session.repository, session.syncStatus, session.syncHealth) {
@@ -307,11 +316,20 @@ private fun PasteKeyScreen(
 private fun BackupKeyScreen(
     nsec: String,
     confirmed: Boolean,
+    onBack: () -> Unit,
     onConfirmChange: (Boolean) -> Unit,
     onContinue: () -> Unit,
 ) {
+    val context = LocalContext.current
+
     Column(screenModifier().testTag(LOGIN_ROOT_TEST_TAG)) {
-        Spacer(Modifier.height(68.dp))
+        Text(
+            "‹ Back",
+            modifier = Modifier.padding(top = 24.dp).clickable(onClick = onBack).testTag("backup_back"),
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 17.sp,
+        )
+        Spacer(Modifier.height(38.dp))
         Text("Save your private key", style = MaterialTheme.typography.displayLarge, fontSize = 38.sp)
         Spacer(Modifier.height(18.dp))
         Text(
@@ -330,6 +348,17 @@ private fun BackupKeyScreen(
                 ).padding(18.dp),
         ) {
             Text(nsec, color = MaterialTheme.colorScheme.onSurface, fontSize = 15.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+        OutlinedButton(
+            onClick = {
+                val clipboard = context.getSystemService(ClipboardManager::class.java)
+                clipboard.setPrimaryClip(ClipData.newPlainText("Nook private key", nsec))
+            },
+            modifier = Modifier.fillMaxWidth().height(48.dp).testTag("backup_copy_private_key"),
+            shape = RoundedCornerShape(14.dp),
+        ) {
+            Text("Copy private key", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(Modifier.height(24.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {

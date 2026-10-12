@@ -89,6 +89,10 @@ class LoginSessionController(
         screen = LoginScreen.BackupKey(keyCodec.create())
     }
 
+    fun cancelBackup() {
+        screen = LoginScreen.Welcome
+    }
+
     fun completeSignerPairing(
         publicKey: String,
         packageName: String,

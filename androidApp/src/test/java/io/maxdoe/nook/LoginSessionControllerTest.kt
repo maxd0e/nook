@@ -48,6 +48,18 @@ class LoginSessionControllerTest {
     }
 
     @Test
+    fun cancelBackup_returnsToWelcomeWithoutSavingGeneratedKey() {
+        val store = FakeLoginSessionStore()
+        val controller = LoginSessionController(store, FakeNsecKeyCodec)
+        controller.createKey()
+
+        controller.cancelBackup()
+
+        assertEquals(LoginScreen.Welcome, controller.screen)
+        assertFalse(store.hasValidKey())
+    }
+
+    @Test
     fun logout_clearsStoredKeyAndLocalData() {
         val store = FakeLoginSessionStore().also { it.save(FakeNsecKeyCodec.VALID_NSEC) }
         val controller = LoginSessionController(store, FakeNsecKeyCodec)
