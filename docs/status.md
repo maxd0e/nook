@@ -221,6 +221,12 @@
 - Added Compose coverage for the direct Welcome action; `:androidApp:testDebugUnitTest`,
   `:androidApp:compileDebugAndroidTestKotlin`, and `:androidApp:ktlintCheck` pass.
 
+## Notes add-action motion update (2026-10-12)
+
+- Replaced the Notes add dropdown with an animated vertical speed dial: Note and Checklist actions now expand upward from the `+` control, which rotates into a close control while open.
+- Raised the add control from a 28dp to a 52dp bottom inset and added an outside-tap dismiss target with accessible add/close labels.
+- Added Compose coverage for opening a Note from the speed dial and closing it with the main control; `:androidApp:compileDebugAndroidTestKotlin`, `:androidApp:assembleDebug`, and `:androidApp:ktlintCheck` pass.
+
 ## Welcome visual alignment update (2026-10-12)
 
 - Replaced the hand-drawn Welcome mark with the supplied Nook SVG converted to

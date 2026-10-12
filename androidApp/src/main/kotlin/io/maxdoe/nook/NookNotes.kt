@@ -2,6 +2,13 @@
 
 package io.maxdoe.nook
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,8 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -46,9 +52,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -219,36 +228,80 @@ private fun NotesList(
             }
             item { Spacer(Modifier.height(110.dp)) }
         }
-        FloatingActionButton(
-            onClick = { addMenuExpanded = true },
+        if (addMenuExpanded) {
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .clickable { addMenuExpanded = false }
+                    .testTag("add_menu_scrim"),
+            )
+        }
+        Column(
             modifier =
                 Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(end = 20.dp, bottom = 28.dp)
-                    .size(56.dp)
-                    .testTag("new_note"),
-            shape = CircleShape,
-            containerColor = MaterialTheme.colorScheme.primary,
-        ) { Text("+", fontSize = 28.sp) }
-        DropdownMenu(
-            expanded = addMenuExpanded,
-            onDismissRequest = { addMenuExpanded = false },
-            modifier = Modifier.testTag("new_item_menu"),
+                    .padding(end = 20.dp, bottom = 52.dp),
+            horizontalAlignment = Alignment.End,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            DropdownMenuItem(
-                text = { Text("Note") },
-                onClick = {
-                    addMenuExpanded = false
-                    onNewNote()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text("Checklist") },
-                onClick = {
-                    addMenuExpanded = false
-                    onNewChecklist()
-                },
-            )
+            AnimatedVisibility(
+                visible = addMenuExpanded,
+                enter =
+                    fadeIn(tween(durationMillis = 180, delayMillis = 70)) +
+                        scaleIn(tween(durationMillis = 180, delayMillis = 70), initialScale = 0.7f) +
+                        slideInVertically(tween(durationMillis = 180, delayMillis = 70)) { it / 2 },
+                exit = fadeOut(tween(durationMillis = 120)) + scaleOut(tween(durationMillis = 120)),
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        addMenuExpanded = false
+                        onNewChecklist()
+                    },
+                    text = { Text("Checklist") },
+                    icon = { Text("✓") },
+                    modifier = Modifier.testTag("new_checklist"),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                )
+            }
+            AnimatedVisibility(
+                visible = addMenuExpanded,
+                enter =
+                    fadeIn(tween(durationMillis = 180)) +
+                        scaleIn(tween(durationMillis = 180), initialScale = 0.7f) +
+                        slideInVertically(tween(durationMillis = 180)) { it / 2 },
+                exit = fadeOut(tween(durationMillis = 120)) + scaleOut(tween(durationMillis = 120)),
+            ) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        addMenuExpanded = false
+                        onNewNote()
+                    },
+                    text = { Text("Note") },
+                    icon = { Text("+") },
+                    modifier = Modifier.testTag("new_note_action"),
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    contentColor = MaterialTheme.colorScheme.primary,
+                )
+            }
+            FloatingActionButton(
+                onClick = { addMenuExpanded = !addMenuExpanded },
+                modifier =
+                    Modifier
+                        .size(56.dp)
+                        .semantics {
+                            contentDescription =
+                                if (addMenuExpanded) "Close add menu" else "Create note or checklist"
+                        }.testTag("new_note"),
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Text(
+                    text = "+",
+                    modifier = Modifier.rotate(if (addMenuExpanded) 45f else 0f),
+                    fontSize = 28.sp,
+                )
+            }
         }
     }
 }

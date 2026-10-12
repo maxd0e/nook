@@ -1,5 +1,6 @@
 package io.maxdoe.nook
 
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -86,8 +87,26 @@ class NookNotesTest {
 
         composeRule.onNodeWithText("1 of 2 done").assertIsDisplayed()
         composeRule.onNodeWithTag("new_note").performClick()
-        composeRule.onNodeWithText("Checklist").performClick()
+        composeRule.onNodeWithTag("new_checklist").performClick()
         composeRule.onNodeWithTag("checklist_editor").assertIsDisplayed()
+    }
+
+    @Test
+    fun addSpeedDialCreatesANoteAndClosesWhenToggled() {
+        val repository = repository()
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("new_note_action").assertDoesNotExist()
+        composeRule.onNodeWithTag("new_note").performClick()
+        composeRule.onNodeWithTag("new_note_action").assertIsDisplayed()
+        composeRule.onNodeWithTag("new_note").performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithTag("new_note_action").assertDoesNotExist()
+
+        composeRule.onNodeWithTag("new_note").performClick()
+        composeRule.onNodeWithTag("new_note_action").performClick()
+        composeRule.onNodeWithTag("note_editor").assertIsDisplayed()
     }
 
     @Test
