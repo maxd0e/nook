@@ -166,6 +166,14 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## Theme preference persistence fix (2026-10-12)
+
+- The selected light or dark theme now persists in app preferences across app
+  launches. It remains separate from the login session, so logging out does
+  not reset the user's display choice.
+- Added an Android Compose regression test that toggles the theme, recreates
+  the activity, and verifies the saved choice is restored.
+
 ## Editor pin and action-icon fix (2026-10-12)
 
 - Fixed Note and Checklist editors so pinning an unchanged saved item now

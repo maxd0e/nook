@@ -36,4 +36,23 @@ class MainActivitySmokeTest {
         }
         composeRule.onAllNodesWithText("Notes are encrypted on your device before they leave it.").assertCountEquals(0)
     }
+
+    @Test
+    fun themeToggle_persistsAfterActivityRecreation() {
+        val darkThemeAction = composeRule.onAllNodesWithContentDescription("Switch to dark theme")
+        val wasDark = darkThemeAction.fetchSemanticsNodes().isEmpty()
+
+        if (wasDark) {
+            composeRule.onNodeWithContentDescription("Switch to light theme").performClick()
+        } else {
+            composeRule.onNodeWithContentDescription("Switch to dark theme").performClick()
+        }
+        composeRule.activity.recreate()
+
+        if (wasDark) {
+            composeRule.onNodeWithContentDescription("Switch to dark theme").assertIsDisplayed()
+        } else {
+            composeRule.onNodeWithContentDescription("Switch to light theme").assertIsDisplayed()
+        }
+    }
 }

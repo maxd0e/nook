@@ -12,7 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlin.coroutines.resume
@@ -73,13 +73,17 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val systemDarkTheme = isSystemInDarkTheme()
-            var darkTheme by rememberSaveable { mutableStateOf(systemDarkTheme) }
+            val themePreferences = remember { AndroidThemePreferenceStore(applicationContext) }
+            var darkTheme by remember { mutableStateOf(themePreferences.darkThemeOrDefault(systemDarkTheme)) }
             NookTheme(darkTheme = darkTheme) {
                 NookHome(
                     sessionStore = AndroidLoginSessionStore(applicationContext),
                     signerRequester = signerRequester,
                     isDarkTheme = darkTheme,
-                    onThemeToggle = { darkTheme = !darkTheme },
+                    onThemeToggle = {
+                        darkTheme = !darkTheme
+                        themePreferences.saveDarkTheme(darkTheme)
+                    },
                 )
             }
         }
