@@ -8,8 +8,8 @@ import io.maxdoe.nook.nostr.SignedNostrEvent
 import kotlinx.coroutines.await
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.js.JsAny
 import kotlin.js.JsModule
-import kotlin.js.JsString
 import kotlin.js.Promise
 
 /** Browser persistence for relay ciphertext only. Plaintext projections stay in NoteRepository memory. */
@@ -22,7 +22,7 @@ class IndexedDbEncryptedEventStore private constructor(
     override suspend fun insert(event: StoredNostrEvent) {
         require(event.event.publicKey == publicKey) { "Cannot store an event for a different account." }
         if (events.none { it.event.id == event.event.id }) {
-            IndexedDbBridge.put(json.encodeToString(PersistedEvent.from(event))).await<JsString>()
+            IndexedDbBridge.put(json.encodeToString(PersistedEvent.from(event))).await<JsAny>()
             events += event
         }
     }
@@ -30,24 +30,31 @@ class IndexedDbEncryptedEventStore private constructor(
     override suspend fun markClean(eventId: String) {
         val index = events.indexOfFirst { it.event.id == eventId }
         if (index >= 0) {
-            IndexedDbBridge.markClean(eventId).await<JsString>()
+            IndexedDbBridge.markClean(eventId).await<JsAny>()
             events[index] = events[index].copy(dirty = false)
         }
     }
 
     suspend fun clear() {
         events.clear()
-        IndexedDbBridge.clear(publicKey).await<JsString>()
+        IndexedDbBridge.clear(publicKey).await<JsAny>()
     }
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 
-        suspend fun open(publicKey: String): IndexedDbEncryptedEventStore {
+        suspend fun open(
+            publicKey: String,
+            loadExisting: Boolean = true,
+        ): IndexedDbEncryptedEventStore {
             val saved =
-                json.decodeFromString<List<PersistedEvent>>(
-                    IndexedDbBridge.readAll(publicKey).await<JsString>().toString(),
-                )
+                if (loadExisting) {
+                    json.decodeFromString<List<PersistedEvent>>(
+                        IndexedDbBridge.readAll(publicKey).await<JsAny>().toString(),
+                    )
+                } else {
+                    emptyList()
+                }
             return IndexedDbEncryptedEventStore(publicKey, saved.map(PersistedEvent::toStored).toMutableList())
         }
     }
@@ -55,13 +62,13 @@ class IndexedDbEncryptedEventStore private constructor(
 
 @JsModule("./indexedDbBridge.mjs")
 private external object IndexedDbBridge {
-    fun readAll(publicKey: String): Promise<JsString>
+    fun readAll(publicKey: String): Promise<JsAny>
 
-    fun put(value: String): Promise<JsString>
+    fun put(value: String): Promise<JsAny>
 
-    fun markClean(eventId: String): Promise<JsString>
+    fun markClean(eventId: String): Promise<JsAny>
 
-    fun clear(publicKey: String): Promise<JsString>
+    fun clear(publicKey: String): Promise<JsAny>
 }
 
 @Serializable

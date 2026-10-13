@@ -166,6 +166,21 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## v2 web E2E follow-up (2026-10-13)
+
+- The Playwright workspace setup injects an E2E-only browser flag. It opens the
+  test session with no relay URLs, so workflow tests cannot publish generated
+  activity to public Nostr relays. The suite also reopens newly saved items before
+  testing pinning, verifies that IndexedDB contains a ciphertext record before
+  logout, and polls until the active account's records are removed after logout.
+- The generated-key confirmation path retains the generated key pair in memory
+  rather than parsing the displayed private key again before opening a session.
+- **Known gap:** `npm.cmd run test:e2e` remains red. Sign-in reaches the empty
+  workspace under the isolated configuration, but creating a note does not finish
+  its Wasm save path, so the note remains in edit mode. Fix this before W3 is
+  considered complete or these tests are treated as a required green suite. No
+  real-relay validation was attempted.
+
 ## v2 web W2 update (2026-10-13)
 
 - Added a native Kotlin/Wasm Welcome, pasted-`nsec` entry, generated-key

@@ -29,6 +29,7 @@ test.afterAll(async () => {
 })
 
 async function signIn(page) {
+    await page.addInitScript(() => { window.__NOOK_E2E__ = true })
     await page.goto(origin)
     await page.getByRole('button', { name: 'Create a new key' }).click()
     await page.getByRole('checkbox', { name: 'I saved my private key' }).check()
@@ -43,6 +44,9 @@ async function createNote(page, title, body) {
     await page.locator('#editor-body').fill(body)
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
+    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: new RegExp(title) }).click()
+    await expect(page.getByRole('heading', { name: title })).toBeVisible()
 }
 
 async function createChecklist(page, title) {
@@ -52,6 +56,9 @@ async function createChecklist(page, title) {
     await page.locator('#new-item').fill('First item')
     await page.getByRole('button', { name: 'Add' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByRole('heading', { name: title })).toBeVisible()
+    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: new RegExp(title) }).click()
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
 }
 
@@ -139,7 +146,17 @@ test('browser storage remains ciphertext-only and logout clears the active accou
     }))
     expect(records).not.toContain('Sensitive title')
     expect(records).not.toContain('Sensitive body')
-    await page.getByRole('button', { name: 'Back' }).click()
+    expect(JSON.parse(records)).not.toHaveLength(0)
     await page.getByRole('button', { name: 'Log out' }).click()
     await expect(page.getByRole('heading', { name: 'Nook' })).toBeVisible()
+    await expect.poll(() => page.evaluate(async () => new Promise((resolve, reject) => {
+        const request = indexedDB.open('nook-encrypted-events')
+        request.onerror = () => reject(request.error)
+        request.onsuccess = () => {
+            const transaction = request.result.transaction('events', 'readonly')
+            const getAll = transaction.objectStore('events').getAll()
+            getAll.onsuccess = () => resolve(getAll.result)
+            getAll.onerror = () => reject(getAll.error)
+        }
+    }))).toHaveLength(0)
 })
