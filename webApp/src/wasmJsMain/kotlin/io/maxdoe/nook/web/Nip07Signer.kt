@@ -2,6 +2,7 @@
 
 package io.maxdoe.nook.web
 
+import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.SignedNostrEvent
 import io.maxdoe.nook.nostr.Signer
 import io.maxdoe.nook.nostr.SignerRequestException
@@ -28,6 +29,7 @@ class Nip07Signer private constructor(
             .let(json::parseToJsonElement)
             .jsonObject
             .toSignedEvent()
+            .also { signed -> validateSignedEvent(event, signed, publicKey) }
 
     override suspend fun nip44Encrypt(
         plaintext: String,
@@ -57,6 +59,24 @@ class Nip07Signer private constructor(
             } catch (error: Throwable) {
                 throw SignerRequestException(error.message ?: "The Nostr extension could not complete the request.")
             }
+    }
+}
+
+internal fun validateSignedEvent(
+    requested: UnsignedNostrEvent,
+    signed: SignedNostrEvent,
+    publicKey: String,
+) {
+    check(signed.publicKey == publicKey && NostrEventSigner.verify(signed)) {
+        "Signer returned an invalid signature."
+    }
+    check(
+        signed.createdAt == requested.createdAt &&
+            signed.kind == requested.kind &&
+            signed.tags == requested.tags &&
+            signed.content == requested.content,
+    ) {
+        "Signer changed the requested event."
     }
 }
 

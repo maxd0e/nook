@@ -149,7 +149,7 @@ private class WebNookNoteSession private constructor(
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             val client = createNookHttpClient()
             return try {
-                val store = IndexedDbEncryptedEventStore.open()
+                val store = IndexedDbEncryptedEventStore.open(signer.publicKey)
                 val repository =
                     NoteRepository(
                         store = store,

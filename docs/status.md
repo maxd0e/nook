@@ -182,6 +182,16 @@
   W1 real-relay acceptance check and browser-manual NIP-07 coverage remain
   required before web release.
 
+## v2 web security hardening update (2026-10-13)
+
+- IndexedDB event reads and logout cleanup are now scoped to the active
+  signer's public key. A browser profile can retain another account's
+  ciphertext without that account's dirty events being loaded or published.
+- NIP-07 signing now rejects extension responses unless their signer key,
+  signature, timestamp, kind, tags, and content exactly match the requested
+  event. Added a Wasm regression test for a validly signed but altered event.
+- `:webApp:ktlintCheck` and `:webApp:wasmJsBrowserTest` pass.
+
 ## Private-key backup copy update (2026-10-12)
 
 - The one-time "Save your private key" screen now includes a full-width

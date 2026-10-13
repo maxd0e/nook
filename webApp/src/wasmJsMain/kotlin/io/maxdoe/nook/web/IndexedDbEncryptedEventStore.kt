@@ -14,11 +14,13 @@ import kotlin.js.Promise
 
 /** Browser persistence for relay ciphertext only. Plaintext projections stay in NoteRepository memory. */
 class IndexedDbEncryptedEventStore private constructor(
+    private val publicKey: String,
     private val events: MutableList<StoredNostrEvent>,
 ) : EncryptedEventStore {
     override fun all(): List<StoredNostrEvent> = events.toList()
 
     override suspend fun insert(event: StoredNostrEvent) {
+        require(event.event.publicKey == publicKey) { "Cannot store an event for a different account." }
         if (events.none { it.event.id == event.event.id }) {
             IndexedDbBridge.put(json.encodeToString(PersistedEvent.from(event))).await<JsString>()
             events += event
@@ -35,31 +37,31 @@ class IndexedDbEncryptedEventStore private constructor(
 
     suspend fun clear() {
         events.clear()
-        IndexedDbBridge.clear().await<JsString>()
+        IndexedDbBridge.clear(publicKey).await<JsString>()
     }
 
     companion object {
         private val json = Json { ignoreUnknownKeys = true }
 
-        suspend fun open(): IndexedDbEncryptedEventStore {
+        suspend fun open(publicKey: String): IndexedDbEncryptedEventStore {
             val saved =
                 json.decodeFromString<List<PersistedEvent>>(
-                    IndexedDbBridge.readAll().await<JsString>().toString(),
+                    IndexedDbBridge.readAll(publicKey).await<JsString>().toString(),
                 )
-            return IndexedDbEncryptedEventStore(saved.map(PersistedEvent::toStored).toMutableList())
+            return IndexedDbEncryptedEventStore(publicKey, saved.map(PersistedEvent::toStored).toMutableList())
         }
     }
 }
 
 @JsModule("./indexedDbBridge.mjs")
 private external object IndexedDbBridge {
-    fun readAll(): Promise<JsString>
+    fun readAll(publicKey: String): Promise<JsString>
 
     fun put(value: String): Promise<JsString>
 
     fun markClean(eventId: String): Promise<JsString>
 
-    fun clear(): Promise<JsString>
+    fun clear(publicKey: String): Promise<JsString>
 }
 
 @Serializable

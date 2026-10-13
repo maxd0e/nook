@@ -1,15 +1,39 @@
 package io.maxdoe.nook.web
 
 import io.maxdoe.nook.crypto.NostrKeyPair
+import io.maxdoe.nook.nostr.NostrEventSigner
 import io.maxdoe.nook.nostr.Signer
+import io.maxdoe.nook.nostr.UnsignedNostrEvent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class WebLoginControllerTest {
+    @Test
+    fun signedEventValidation_rejectsExtensionChangingRequestedContent() {
+        val keyPair = NostrKeyPair.generate()
+        val requested =
+            UnsignedNostrEvent(
+                createdAt = 100,
+                kind = 30_078,
+                tags = listOf(listOf("d", "nook-note")),
+                content = "ciphertext",
+            )
+        val altered = requested.copy(content = "replacement ciphertext")
+        val signedAlteredEvent = NostrEventSigner.sign(altered, keyPair)
+
+        val failure =
+            assertFailsWith<IllegalStateException> {
+                validateSignedEvent(requested, signedAlteredEvent, keyPair.publicKeyHex)
+            }
+
+        assertEquals("Signer changed the requested event.", failure.message)
+    }
+
     @Test
     fun invalidNsec_remainsOnPasteScreenAndDoesNotOpenSession() =
         runTest {

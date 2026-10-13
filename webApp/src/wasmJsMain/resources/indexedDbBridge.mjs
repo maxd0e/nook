@@ -6,8 +6,13 @@ let queue = Promise.resolve()
 function database() {
     if (databasePromise) return databasePromise
     databasePromise = new Promise((resolve, reject) => {
-        const request = indexedDB.open(databaseName, 1)
-        request.onupgradeneeded = () => request.result.createObjectStore(storeName, { keyPath: 'id' })
+        const request = indexedDB.open(databaseName, 2)
+        request.onupgradeneeded = () => {
+            const store = request.result.objectStoreNames.contains(storeName)
+                ? request.transaction.objectStore(storeName)
+                : request.result.createObjectStore(storeName, { keyPath: 'id' })
+            if (!store.indexNames.contains('publicKey')) store.createIndex('publicKey', 'publicKey')
+        }
         request.onsuccess = () => resolve(request.result)
         request.onerror = () => reject(request.error)
     })
@@ -30,9 +35,9 @@ function enqueue(action) {
     return queue.then(() => '')
 }
 
-export function readAll() {
+export function readAll(publicKey) {
     return queue.then(() => transaction('readonly', (store, resolve, reject) => {
-        const request = store.getAll()
+        const request = store.index('publicKey').getAll(publicKey)
         request.onsuccess = () => resolve(JSON.stringify(request.result))
         request.onerror = () => reject(request.error)
     }))
@@ -57,10 +62,18 @@ export function markClean(eventId) {
     }))
 }
 
-export function clear() {
+export function clear(publicKey) {
     return enqueue(() => transaction('readwrite', (store, resolve, reject) => {
-        const request = store.clear()
-        request.onsuccess = () => resolve()
+        const request = store.index('publicKey').openKeyCursor(IDBKeyRange.only(publicKey))
+        request.onsuccess = () => {
+            const cursor = request.result
+            if (cursor) {
+                store.delete(cursor.primaryKey)
+                cursor.continue()
+            } else {
+                resolve()
+            }
+        }
         request.onerror = () => reject(request.error)
     }))
 }
