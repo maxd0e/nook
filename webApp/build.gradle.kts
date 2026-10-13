@@ -20,6 +20,12 @@ kotlin {
             implementation("org.jetbrains.kotlinx:kotlinx-browser:0.5.0")
             implementation(libs.coroutines.core)
             implementation(libs.serialization.json)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.websockets)
+        }
+        wasmJsTest.dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.coroutines.test)
         }
     }
 }

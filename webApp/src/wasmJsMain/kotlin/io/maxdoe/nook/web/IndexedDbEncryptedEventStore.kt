@@ -5,12 +5,12 @@ package io.maxdoe.nook.web
 import io.maxdoe.nook.data.EncryptedEventStore
 import io.maxdoe.nook.data.StoredNostrEvent
 import io.maxdoe.nook.nostr.SignedNostrEvent
-import kotlin.js.JsModule
-import kotlin.js.JsString
-import kotlin.js.Promise
 import kotlinx.coroutines.await
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlin.js.JsModule
+import kotlin.js.JsString
+import kotlin.js.Promise
 
 /** Browser persistence for relay ciphertext only. Plaintext projections stay in NoteRepository memory. */
 class IndexedDbEncryptedEventStore private constructor(
@@ -42,7 +42,10 @@ class IndexedDbEncryptedEventStore private constructor(
         private val json = Json { ignoreUnknownKeys = true }
 
         suspend fun open(): IndexedDbEncryptedEventStore {
-            val saved = json.decodeFromString<List<PersistedEvent>>(IndexedDbBridge.readAll().await<JsString>().toString())
+            val saved =
+                json.decodeFromString<List<PersistedEvent>>(
+                    IndexedDbBridge.readAll().await<JsString>().toString(),
+                )
             return IndexedDbEncryptedEventStore(saved.map(PersistedEvent::toStored).toMutableList())
         }
     }
@@ -81,7 +84,17 @@ private data class PersistedEvent(
     companion object {
         fun from(value: StoredNostrEvent): PersistedEvent =
             value.event.let { event ->
-                PersistedEvent(event.id, event.publicKey, event.createdAt, event.kind, event.tags, event.content, event.signature, value.dTag, value.dirty)
+                PersistedEvent(
+                    event.id,
+                    event.publicKey,
+                    event.createdAt,
+                    event.kind,
+                    event.tags,
+                    event.content,
+                    event.signature,
+                    value.dTag,
+                    value.dirty,
+                )
             }
     }
 }

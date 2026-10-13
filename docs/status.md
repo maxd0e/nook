@@ -166,6 +166,22 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## v2 web W2 update (2026-10-13)
+
+- Added a native Kotlin/Wasm Welcome, pasted-`nsec` entry, generated-key
+  backup, session placeholder, light/dark preference, clipboard copy, and
+  logout flow in `:webApp`.
+- Local-key credentials exist only in the active controller/session; they are
+  never written to browser storage. Logout stops relay sync, clears the
+  IndexedDB ciphertext store, and releases the in-memory session while keeping
+  the non-sensitive theme preference.
+- Added a narrow NIP-07 adapter that requires `getPublicKey`, `signEvent`, and
+  NIP-44 encrypt/decrypt methods before sign-in. Extension sessions delegate
+  signing and encryption to `window.nostr`.
+- Focused Wasm login-controller tests and the Wasm browser test task pass. The
+  W1 real-relay acceptance check and browser-manual NIP-07 coverage remain
+  required before web release.
+
 ## Private-key backup copy update (2026-10-12)
 
 - The one-time "Save your private key" screen now includes a full-width
