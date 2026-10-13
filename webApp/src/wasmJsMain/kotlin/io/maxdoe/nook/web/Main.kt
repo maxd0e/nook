@@ -221,7 +221,7 @@ private fun bindEditor() {
         (current as? Draft.Note)?.body =
             text("editor-body")
     })
-    click("editor-notes") {
+    click("close-editor") {
         scope.launch {
             if (!current.isDirty() || save()) {
                 nav("#/notes")
@@ -329,11 +329,7 @@ private fun workspaceMarkup(): String {
         workspace.repository.search(query),
         workspace.syncStatus.value,
         workspace.syncHealth.value,
-    )}</aside><section class=\"detail-pane\">${detailMarkup(
-        selected,
-        workspace.syncStatus.value,
-        workspace.syncHealth.value,
-    )}</section></main>${confirmMarkup()}"
+    )}</aside><section class=\"detail-pane\">${detailMarkup(selected)}</section></main>${confirmMarkup()}"
 }
 
 private fun listMarkup(
@@ -346,31 +342,31 @@ private fun listMarkup(
     val logoutIcon = icon("logout")
     val empty = if (query.isBlank()) "<div class=empty><h2>Create your first note or checklist</h2><p>Use + to get started.</p></div>" else "<div class=empty><h2>No matching notes</h2><p>Try a different search.</p></div>"
     val cards =
-        relayHealth(health) +
-            if (items.isEmpty()) {
-                empty
-            } else {
-                "${if (pinned.isNotEmpty()) {
-                    "<h2 class=section-label>PINNED</h2>${pinned.joinToString(
-                        "",
-                    ) {
-                        card(
-                            it,
-                        )
-                    }}"
-                } else {
-                    ""
-                }}${if (rest.isNotEmpty()) {
-                    "<h2 class=section-label>ALL NOTES</h2>${rest.joinToString(
-                        "",
-                    ) { card(it) }}"
-                } else {
-                    ""
+        if (items.isEmpty()) {
+            empty
+        } else {
+            "${if (pinned.isNotEmpty()) {
+                "<h2 class=section-label>PINNED</h2>${pinned.joinToString(
+                    "",
+                ) {
+                    card(
+                        it,
+                    )
                 }}"
-            }
-    return "<header class=list-header><span></span>${sync(
-        status,
-    )}${themeButton()}<button id=logout class=icon-button aria-label=\"Log out\">$logoutIcon</button></header><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=Search value=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
+            } else {
+                ""
+            }}${if (rest.isNotEmpty()) {
+                "<h2 class=section-label>ALL NOTES</h2>${rest.joinToString(
+                    "",
+                ) { card(it) }}"
+            } else {
+                ""
+            }}"
+        }
+    val theme = themeButton()
+    val statusMarkup = sync(status)
+    val healthMarkup = relayHealth(health)
+    return "<header class=list-header><h1 class=notes-title>Notes</h1><div class=list-actions>$theme<button id=logout class=logout-button>$logoutIcon<span>Log out</span></button></div></header><div class=side-status>$statusMarkup$healthMarkup</div><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
 }
 
 private fun card(item: NookListItem): String =
@@ -388,21 +384,16 @@ private fun card(item: NookListItem): String =
         else -> ""
     }
 
-private fun detailMarkup(
-    item: NookListItem?,
-    status: RelaySyncStatus,
-    health: RelaySyncHealth,
-): String {
+private fun detailMarkup(item: NookListItem?): String {
     if (!detail()) return "<div class=desktop-empty><h1>Select a note</h1><p>Your encrypted notes appear here.</p></div>"
     val current = draft ?: return ""
     val editorAction = if (current.editing) "Save" else "Edit"
     val editorIcon = icon(if (current.editing) "save" else "edit")
     val pinIcon = icon(if (item?.pinned() == true) "pin-filled" else "pin-outline")
     val deleteIcon = icon("delete")
-    val top = "<header class=editor-header><button id=editor-notes class=notes-button>Notes</button>${sync(
-        status,
-    )}<button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button></header>"
-    return "$top${relayHealth(health)}" +
+    val closeIcon = icon("close")
+    val top = "<header class=editor-header><button id=close-editor class=icon-button aria-label=\"Close note\">$closeIcon</button><span class=editor-header-spacer></span><button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button></header>"
+    return top +
         when (current) {
             is Draft.Note -> noteEditor(current)
             is Draft.Checklist -> checklistEditor(current)
@@ -683,6 +674,7 @@ private fun icon(name: String): String {
     val path =
         when (name) {
             "delete" -> "<path d=\"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12Zm2-10h8v10H8V9Zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5Z\"/>"
+            "close" -> "<path d=\"m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3Z\"/>"
             "edit" -> "<path d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z\"/>"
             "logout" -> "<path d=\"M5 5c0-1.1.9-2 2-2h5v2H7v14h5v2H7c-1.1 0-2-.9-2-2V5Zm11.6 2.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4 4.4-4.4-4.4-4.4Z\"/>"
             "moon" -> "<path d=\"M20.5 15.5C15.81 16.55 11.45 13.19 12.5 8.5c.41-1.84 1.4-3.48 2.76-4.71C10.52 2.76 6 6.39 6 11.5 6 15.64 9.36 19 13.5 19c3.08 0 5.73-1.86 7-3.5Z\"/>"

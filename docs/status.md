@@ -1,5 +1,16 @@
 # Nook Project Status
 
+## Web workspace layout refinement (2026-10-14)
+
+- The signed-in web Notes side panel now has a top-left Notes heading, separate
+  theme and labeled logout controls, and the sole sync/relay-health disclosure.
+- Note and checklist editors now use an accessible close control that returns to
+  the Notes list after saving a dirty draft; the duplicate right-panel sync and
+  relay status are removed.
+- `:webApp:ktlintCheck`, `:webApp:wasmJsBrowserTest`, and the focused desktop/
+  narrow Playwright navigation scenario pass. The full workspace Playwright
+  suite remains blocked by its existing live-search rerender failure.
+
 ## Web visual parity update (2026-10-14)
 
 - The web Welcome screen now renders the bundled Nook SVG, and the former
