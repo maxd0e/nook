@@ -93,7 +93,7 @@ fun main() {
 private fun render() {
     requireNotNull(document.getElementById("nook-root")).innerHTML =
         when (val screen = controller.screen) {
-            WebLoginScreen.Welcome -> welcomeMarkup()
+            WebLoginScreen.Welcome -> welcomeMarkup().replace("</main>", "${welcomeGuidanceMarkup()}</main>")
             WebLoginScreen.PasteKey -> pasteMarkup()
             is WebLoginScreen.BackupKey -> backupMarkup(screen)
             WebLoginScreen.SignedIn -> workspaceMarkup()
@@ -115,6 +115,12 @@ private fun bind() {
     }
     when (val screen = controller.screen) {
         WebLoginScreen.Welcome -> {
+            if (WebUiBridge.compatibilityError().isNotBlank()) {
+                document.getElementById("create-key")?.setAttribute("disabled", "disabled")
+                document.getElementById("paste-key")?.setAttribute("disabled", "disabled")
+                document.getElementById("extension-login")?.setAttribute("disabled", "disabled")
+                return
+            }
             click("create-key") {
                 controller.createKey()
                 render()
@@ -656,6 +662,18 @@ private fun backupMarkup(screen: WebLoginScreen.BackupKey) =
 
 private fun error() = controller.error?.let { "<p class=error role=alert>${it.escape()}</p>" }.orEmpty()
 
+private fun welcomeGuidanceMarkup(): String {
+    val compatibility = WebUiBridge.compatibilityError()
+    if (compatibility.isNotBlank()) {
+        return "<p class=compatibility role=alert>${compatibility.escape()}</p>"
+    }
+    val extensionSuffix =
+        Nip07Signer.availabilityErrorOrNull()
+            ?.let { " ${it.escape()}" }
+            .orEmpty()
+    return "<p class=extension-help>Browser-extension sign-in requires a NIP-07 extension with event signing and NIP-44 encryption.$extensionSuffix</p>"
+}
+
 private fun themeButton() = "<button id=theme-toggle class=theme-toggle aria-label=\"Toggle theme\">◐</button>"
 
 private fun applyTheme(theme: String) {
@@ -674,4 +692,6 @@ private external object WebUiBridge {
     fun randomId(): String
 
     fun now(): Double
+
+    fun compatibilityError(): String
 }
