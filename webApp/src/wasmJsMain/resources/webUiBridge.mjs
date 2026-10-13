@@ -11,3 +11,11 @@ export function saveTheme(theme) {
 export function copyText(value) {
     return navigator.clipboard.writeText(value).then(() => '')
 }
+
+export function randomId() {
+    return crypto.randomUUID()
+}
+
+export function now() {
+    return Date.now()
+}

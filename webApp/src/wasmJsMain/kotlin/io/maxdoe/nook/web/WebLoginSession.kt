@@ -7,6 +7,8 @@ import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.nostr.KtorRelayTransport
 import io.maxdoe.nook.nostr.LocalKeySigner
 import io.maxdoe.nook.nostr.RelaySync
+import io.maxdoe.nook.nostr.RelaySyncHealth
+import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.nostr.Signer
 import io.maxdoe.nook.nostr.createNookHttpClient
 import io.maxdoe.nook.notes.EpochSecondsClock
@@ -16,6 +18,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -34,8 +37,17 @@ sealed interface WebLoginScreen {
 }
 
 interface WebNoteSession {
+    val workspace: WebWorkspace?
+
     suspend fun clearAndClose()
 }
+
+/** The browser UI's narrow view of a signed-in session. Keys never cross this boundary. */
+data class WebWorkspace(
+    val repository: NoteRepository,
+    val syncStatus: StateFlow<RelaySyncStatus>,
+    val syncHealth: StateFlow<RelaySyncHealth>,
+)
 
 fun interface WebNoteSessionFactory {
     suspend fun open(signer: Signer): WebNoteSession
@@ -54,6 +66,9 @@ class WebLoginController(
         private set
 
     private var session: WebNoteSession? = null
+
+    val workspace: WebWorkspace?
+        get() = session?.workspace
 
     fun showPasteKey() {
         error = null
@@ -123,10 +138,12 @@ class WebLoginController(
 
 private class WebNookNoteSession private constructor(
     private val store: IndexedDbEncryptedEventStore,
+    private val repository: NoteRepository,
     private val sync: RelaySync,
     private val client: HttpClient,
     private val scope: CoroutineScope,
 ) : WebNoteSession {
+    override val workspace = WebWorkspace(repository, sync.status, sync.health)
     private val closeMutex = Mutex()
     private var closed = false
 
@@ -161,7 +178,7 @@ private class WebNookNoteSession private constructor(
                     repository.load()
                     sync.start()
                 }
-                WebNookNoteSession(store, sync, client, scope)
+                WebNookNoteSession(store, repository, sync, client, scope)
             } catch (error: Throwable) {
                 client.close()
                 scope.cancel()

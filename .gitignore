@@ -18,3 +18,5 @@ docs/
 AGENTS.md
 docs/status.md
 .kotlin/
+**/node_modules/
+**/test-results/

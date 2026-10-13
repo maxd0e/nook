@@ -104,6 +104,8 @@ class WebLoginControllerTest {
     }
 
     private class RecordingSession : WebNoteSession {
+        override val workspace: WebWorkspace? = null
+
         var cleared = false
 
         override suspend fun clearAndClose() {
