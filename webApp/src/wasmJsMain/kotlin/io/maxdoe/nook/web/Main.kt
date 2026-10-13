@@ -35,19 +35,41 @@ private sealed interface Draft {
     var title: String
     var editing: Boolean
 
+    fun isDirty(): Boolean
+
+    fun markSaved()
+
     data class Note(
         override var id: String?,
         override var title: String,
         var body: String,
         override var editing: Boolean,
-    ) : Draft
+        private var savedTitle: String = title,
+        private var savedBody: String = body,
+    ) : Draft {
+        override fun isDirty() = title != savedTitle || body != savedBody
+
+        override fun markSaved() {
+            savedTitle = title
+            savedBody = body
+        }
+    }
 
     data class Checklist(
         override var id: String?,
         override var title: String,
         var items: List<ChecklistItem>,
         override var editing: Boolean,
-    ) : Draft
+        private var savedTitle: String = title,
+        private var savedItems: List<ChecklistItem> = items,
+    ) : Draft {
+        override fun isDirty() = title != savedTitle || items != savedItems
+
+        override fun markSaved() {
+            savedTitle = title
+            savedItems = items
+        }
+    }
 }
 
 private data class Confirm(
@@ -194,8 +216,9 @@ private fun bindEditor() {
     })
     click("editor-back") {
         scope.launch {
-            save()
-            nav("#/notes")
+            if (!current.isDirty() || save()) {
+                nav("#/notes")
+            }
         }
     }
     click("editor-edit") {
@@ -236,6 +259,19 @@ private fun bindEditor() {
 }
 
 private fun bindChecklist(current: Draft.Checklist) {
+    val itemTextInputs = document.querySelectorAll("[data-item-text]")
+    for (index in 0 until itemTextInputs.length) {
+        (itemTextInputs.item(index) as? HTMLInputElement)?.let { input ->
+            input.addEventListener("input", {
+                input.getAttribute("data-item-text")?.let { id ->
+                    current.items =
+                        current.items.map { item ->
+                            if (item.id == id) item.copy(text = input.value) else item
+                        }
+                }
+            })
+        }
+    }
     click("checklist-add") {
         value("new-item").trim().takeIf(String::isNotEmpty)?.let {
             current.items =
@@ -372,7 +408,7 @@ private fun checklistEditor(list: Draft.Checklist): String {
     val done = list.items.filter(ChecklistItem::done)
 
     fun row(item: ChecklistItem) =
-        "<li><button data-toggle=\"${item.id.escape()}\" class=\"check ${if (item.done) "done" else ""}\" aria-label=\"Toggle ${item.text.escape()}\">${if (item.done) "✓" else ""}</button><span>${item.text.escape()}</span>${if (list.editing) "<button data-delete-item=\"${item.id.escape()}\" class=icon-button aria-label=\"Delete ${item.text.escape()}\">×</button>" else ""}</li>"
+        "<li><button data-toggle=\"${item.id.escape()}\" class=\"check ${if (item.done) "done" else ""}\" aria-label=\"Toggle ${item.text.escape()}\">${if (item.done) "✓" else ""}</button>${if (list.editing) "<input data-item-text=\"${item.id.escape()}\" class=checklist-item aria-label=\"Checklist item\" value=\"${item.text.escape()}\"/>" else "<span>${item.text.escape()}</span>"}${if (list.editing) "<button data-delete-item=\"${item.id.escape()}\" class=icon-button aria-label=\"Delete ${item.text.escape()}\">×</button>" else ""}</li>"
     return "<article class=\"checklist-view ${if (list.editing) "editing" else ""}\">${if (list.editing) {
         "<input id=editor-title class=title-input placeholder=\"Untitled checklist\" value=\"${list.title.escape()}\"/>"
     } else {
@@ -454,6 +490,7 @@ private suspend fun save(): Boolean {
                 }
             }
         }
+        current.markSaved()
         current.editing = false
         true
     } catch (_: Throwable) {

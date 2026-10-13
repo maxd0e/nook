@@ -192,6 +192,14 @@
   event. Added a Wasm regression test for a validly signed but altered event.
 - `:webApp:ktlintCheck` and `:webApp:wasmJsBrowserTest` pass.
 
+## v2 web editor reliability update (2026-10-13)
+
+- Web editor drafts now track their last successfully saved state. Back leaves untouched
+  drafts without writing, and a failed save keeps a changed draft open instead of
+  navigating away.
+- Checklist edit rows now expose editable text inputs; changed labels save with the
+  rest of the checklist.
+
 ## Private-key backup copy update (2026-10-12)
 
 - The one-time "Save your private key" screen now includes a full-width
