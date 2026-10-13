@@ -3,6 +3,7 @@
 
 package io.maxdoe.nook.web
 
+import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
 import io.maxdoe.nook.notes.ChecklistItem
 import io.maxdoe.nook.notes.ChecklistPayload
@@ -84,7 +85,6 @@ fun main() {
         route = window.location.hash.ifBlank { "#/notes" }
         draft = null
         render()
-        null
     }
     route = window.location.hash.ifBlank { "#/notes" }
     render()
@@ -321,41 +321,45 @@ private fun workspaceMarkup(): String {
     return "<main class=\"workspace ${if (detail()) "has-detail" else ""}\"><aside class=\"notes-pane\">${listMarkup(
         workspace.repository.search(query),
         workspace.syncStatus.value,
+        workspace.syncHealth.value,
     )}</aside><section class=\"detail-pane\">${detailMarkup(
         selected,
         workspace.syncStatus.value,
+        workspace.syncHealth.value,
     )}</section></main>${confirmMarkup()}"
 }
 
 private fun listMarkup(
     items: List<NookListItem>,
     status: RelaySyncStatus,
+    health: RelaySyncHealth,
 ): String {
     val pinned = items.filter { it.pinned() }
     val rest = items.filterNot { it.pinned() }
     val empty = if (query.isBlank()) "<div class=empty><h2>Create your first note or checklist</h2><p>Use + to get started.</p></div>" else "<div class=empty><h2>No matching notes</h2><p>Try a different search.</p></div>"
     val cards =
-        if (items.isEmpty()) {
-            empty
-        } else {
-            "${if (pinned.isNotEmpty()) {
-                "<h2 class=section-label>PINNED</h2>${pinned.joinToString(
-                    "",
-                ) {
-                    card(
-                        it,
-                    )
+        relayHealth(health) +
+            if (items.isEmpty()) {
+                empty
+            } else {
+                "${if (pinned.isNotEmpty()) {
+                    "<h2 class=section-label>PINNED</h2>${pinned.joinToString(
+                        "",
+                    ) {
+                        card(
+                            it,
+                        )
+                    }}"
+                } else {
+                    ""
+                }}${if (rest.isNotEmpty()) {
+                    "<h2 class=section-label>ALL NOTES</h2>${rest.joinToString(
+                        "",
+                    ) { card(it) }}"
+                } else {
+                    ""
                 }}"
-            } else {
-                ""
-            }}${if (rest.isNotEmpty()) {
-                "<h2 class=section-label>ALL NOTES</h2>${rest.joinToString(
-                    "",
-                ) { card(it) }}"
-            } else {
-                ""
-            }}"
-        }
+            }
     return "<header class=list-header><span></span>${sync(
         status,
     )}${themeButton()}<button id=logout class=icon-button aria-label=\"Log out\">↪</button></header><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=Search value=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
@@ -379,13 +383,14 @@ private fun card(item: NookListItem): String =
 private fun detailMarkup(
     item: NookListItem?,
     status: RelaySyncStatus,
+    health: RelaySyncHealth,
 ): String {
     if (!detail()) return "<div class=desktop-empty><h1>Select a note</h1><p>Your encrypted notes appear here.</p></div>"
     val current = draft ?: return ""
     val top = "<header class=editor-header><button id=editor-back class=icon-button aria-label=Back>←</button>${sync(
         status,
     )}<button id=\"${if (current.editing) "editor-save" else "editor-edit"}\" class=icon-button>${if (current.editing) "Save" else "Edit"}</button><button id=editor-pin class=icon-button aria-label=Pin>⌖</button><button id=editor-delete class=icon-button aria-label=Delete>⌫</button></header>"
-    return top +
+    return "$top${relayHealth(health)}" +
         when (current) {
             is Draft.Note -> noteEditor(current)
             is Draft.Checklist -> checklistEditor(current)
@@ -599,6 +604,17 @@ private fun sync(status: RelaySyncStatus) =
         RelaySyncStatus.Syncing -> "Syncing"
         RelaySyncStatus.Offline -> "Offline — retrying"
     }}</span>"
+
+private fun relayHealth(health: RelaySyncHealth): String {
+    if (health.relays.isEmpty()) return ""
+    val rows =
+        health.relays.joinToString("") { relay ->
+            val host = relay.url.removePrefix("wss://").escape()
+            "<li><span>$host</span>" +
+                "<span>${relay.status.name.lowercase()}</span></li>"
+        }
+    return "<details class=relay-health><summary>Relay status</summary><ul>$rows</ul></details>"
+}
 
 private fun confirmMarkup() =
     confirm

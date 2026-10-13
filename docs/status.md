@@ -200,6 +200,26 @@
 - Checklist edit rows now expose editable text inputs; changed labels save with the
   rest of the checklist.
 
+## v2 web W3 verification update (2026-10-13)
+
+- Added the responsive web visual baseline, safe per-relay status disclosure,
+  a W4 Android-to-web real-relay checklist, and Playwright scenarios for the
+  notes, checklists, confirmations, responsive navigation, and ciphertext-only
+  browser storage flows.
+- W3 remains incomplete: after generated-key backup confirmation, the browser
+  session does not advance to the workspace under Playwright. The new workflow
+  regression tests expose this session-opening blocker; investigate the
+  IndexedDB/session bridge before attempting W4 real-relay validation.
+- `:webApp:wasmJsBrowserTest` and `:webApp:ktlintCheck` pass. The expanded
+  Playwright suite currently has one Welcome-only passing scenario and four
+  expected failures at the documented sign-in blocker.
+- Once W3 is unblocked, W4 uses a fresh test identity to verify Android↔web
+  create/edit/pin/checklist/delete convergence, reconnect/status behavior, a
+  long checklist, and both local-nsec and NIP-07/NIP-44 web sessions. Record
+  only environment and pass/fail data; never keys, note content, ciphertext,
+  or event IDs. Confirm that browser storage contains ciphertext only while
+  signed in and that logout removes the active account's records.
+
 ## Private-key backup copy update (2026-10-12)
 
 - The one-time "Save your private key" screen now includes a full-width

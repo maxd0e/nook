@@ -25,7 +25,7 @@ body { margin: 0; }
 
 button, input { font: inherit; }
 
-button:focus-visible, input:focus-visible {
+button:focus-visible, input:focus-visible, textarea:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--teal), transparent 45%);
     outline-offset: 3px;
 }
@@ -120,6 +120,7 @@ input { background: var(--input); border: 1px solid var(--border); color: var(--
 .sync::before { background: var(--secondary); border-radius: 50%; content: ""; display: inline-block; height: 8px; margin-right: 6px; width: 8px; }
 .sync.synced::before { background: #2e7d5b; }.sync.syncing::before { background: var(--teal); }
 .search { margin: 16px 0 24px; min-height: 44px; width: 100%; }
+.relay-health { color: var(--secondary); font-size: 12px; margin: 4px 0 0; }.relay-health summary { cursor: pointer; width: fit-content; }.relay-health ul { list-style: none; margin: 8px 0 0; padding: 0; }.relay-health li { display: flex; gap: 12px; justify-content: space-between; max-width: 320px; padding: 3px 0; }
 .section-label { color: var(--secondary); font-family: system-ui, sans-serif; font-size: 12px; letter-spacing: 1.5px; margin: 24px 0 10px; }
 .note-card { background: var(--card); border: 1px solid var(--border); color: var(--ink); display: block; margin: 10px 0; min-height: 0; padding: 14px 16px; text-align: left; width: 100%; }
 .note-card span { align-items: baseline; display: flex; gap: 12px; }.note-card strong { font-family: Georgia, serif; font-size: 19px; font-weight: 600; margin-right: auto; }.note-card small, .note-card p, .empty p, .desktop-empty p { color: var(--secondary); }.note-card p { font-size: 15px; line-height: 1.45; margin: 9px 0 0; }
