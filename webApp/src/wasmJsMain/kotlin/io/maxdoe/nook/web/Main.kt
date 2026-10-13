@@ -668,7 +668,8 @@ private fun welcomeGuidanceMarkup(): String {
         return "<p class=compatibility role=alert>${compatibility.escape()}</p>"
     }
     val extensionSuffix =
-        Nip07Signer.availabilityErrorOrNull()
+        Nip07Signer
+            .availabilityErrorOrNull()
             ?.let { " ${it.escape()}" }
             .orEmpty()
     return "<p class=extension-help>Browser-extension sign-in requires a NIP-07 extension with event signing and NIP-44 encryption.$extensionSuffix</p>"

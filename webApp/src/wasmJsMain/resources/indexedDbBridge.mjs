@@ -64,15 +64,10 @@ export function markClean(eventId) {
 
 export function clear(publicKey) {
     return enqueue(() => transaction('readwrite', (store, resolve, reject) => {
-        const request = store.index('publicKey').openKeyCursor(IDBKeyRange.only(publicKey))
+        const request = store.index('publicKey').getAllKeys(publicKey)
         request.onsuccess = () => {
-            const cursor = request.result
-            if (cursor) {
-                store.delete(cursor.primaryKey)
-                cursor.continue()
-            } else {
-                resolve()
-            }
+            request.result.forEach(key => store.delete(key))
+            resolve()
         }
         request.onerror = () => reject(request.error)
     }))

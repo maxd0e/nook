@@ -1,8 +1,8 @@
 {
   "private": true,
   "scripts": {
-    "test:e2e": "playwright test",
-    "test:production": "..\\gradlew.bat :webApp:wasmJsBrowserProductionWebpack && playwright test e2e/production.spec.mjs"
+    "test:e2e": "cd .. && call gradlew.bat :webApp:wasmJsDevelopmentWebpack && cd webApp && playwright test e2e/workspace.spec.mjs",
+    "test:production": "cd .. && call gradlew.bat :webApp:wasmJsBrowserProductionWebpack && cd webApp && playwright test e2e/production.spec.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.53.1",

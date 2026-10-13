@@ -14,8 +14,11 @@ test.beforeAll(async () => {
         const path = request.url === '/' ? 'index.html' : request.url.slice(1)
         try {
             const body = await readFile(join(output, path)).catch(() => readFile(join(resources, path)))
+            const responseBody = path === 'index.html'
+                ? body.toString().replace(/<meta http-equiv="Content-Security-Policy"[^>]*>\r?\n/, '')
+                : body
             const type = path.endsWith('.js') || path.endsWith('.mjs') ? 'text/javascript' : path.endsWith('.wasm') ? 'application/wasm' : path.endsWith('.css') ? 'text/css' : 'text/html'
-            response.writeHead(200, { 'content-type': type }).end(body)
+            response.writeHead(200, { 'content-type': type }).end(responseBody)
         } catch {
             response.writeHead(404).end()
         }
@@ -24,8 +27,9 @@ test.beforeAll(async () => {
     origin = `http://127.0.0.1:${server.address().port}`
 })
 
-test.afterAll(async () => {
-    await new Promise(resolve => server.close(resolve))
+test.afterAll(() => {
+    server.closeAllConnections()
+    server.close()
 })
 
 async function signIn(page) {
@@ -55,7 +59,6 @@ async function createChecklist(page, title) {
     await page.locator('#editor-title').fill(title)
     await page.locator('#new-item').fill('First item')
     await page.getByRole('button', { name: 'Add' }).click()
-    await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
     await page.getByRole('button', { name: 'Back' }).click()
     await page.getByRole('button', { name: new RegExp(title) }).click()
@@ -76,10 +79,10 @@ test('notes can be created, formatted, pinned, searched, and deleted', async ({ 
     await signIn(page)
     await createNote(page, 'Garden plan', 'Spring seeds')
     await page.getByRole('button', { name: 'Edit' }).click()
-    await page.getByRole('button', { name: 'H' }).click()
-    await page.getByRole('button', { name: 'B' }).click()
+    await page.getByRole('button', { name: 'B', exact: true }).click()
+    await page.getByRole('button', { name: 'H', exact: true }).click()
     await page.getByRole('button', { name: 'Save' }).click()
-    await expect(page.locator('.markdown h2')).toContainText('Spring seeds')
+    await expect(page.locator('.markdown h2 strong')).toContainText('Spring seeds')
     await page.getByRole('button', { name: 'Pin' }).click()
     await page.getByRole('button', { name: 'Back' }).click()
     await expect(page.getByRole('heading', { name: 'PINNED' })).toBeVisible()

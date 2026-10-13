@@ -166,6 +166,21 @@
   permissions, revoked permissions, unavailable signer recovery, and
   cross-device relay verification.
 
+## v2 web W3 E2E repair update (2026-10-14)
+
+- Fixed the remaining `WebLoginSession.kt` formatting violations and the
+  companion `Main.kt` chain-format violation; `:webApp:ktlintCheck` passes.
+- Workspace E2E now builds the development bundle explicitly and serves it
+  without the production CSP, which permits its development Webpack runtime
+  while leaving the release CSP test intact. The suite uses exact formatting
+  toolbar selectors, avoids a duplicate checklist save, and shuts down its
+  local HTTP server without leaving held connections.
+- IndexedDB active-account cleanup now deletes the indexed keys in one
+  transaction rather than walking a cursor, resolving the browser logout
+  cleanup path. The workspace suite passes its note, checklist, responsive,
+  ciphertext-only, and logout flows; the production bundle CSP-startup test
+  also passes. `:webApp:wasmJsBrowserTest` passes.
+
 ## v2 web E2E follow-up (2026-10-13)
 
 - The Playwright workspace setup injects an E2E-only browser flag. It opens the

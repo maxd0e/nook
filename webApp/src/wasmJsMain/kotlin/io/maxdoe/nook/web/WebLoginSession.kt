@@ -7,10 +7,10 @@ import io.maxdoe.nook.crypto.NostrKeyPair
 import io.maxdoe.nook.nostr.KtorRelayTransport
 import io.maxdoe.nook.nostr.LocalKeySigner
 import io.maxdoe.nook.nostr.NookRelays
-import io.maxdoe.nook.nostr.RelayTransport
 import io.maxdoe.nook.nostr.RelaySync
 import io.maxdoe.nook.nostr.RelaySyncHealth
 import io.maxdoe.nook.nostr.RelaySyncStatus
+import io.maxdoe.nook.nostr.RelayTransport
 import io.maxdoe.nook.nostr.Signer
 import io.maxdoe.nook.nostr.createNookHttpClient
 import io.maxdoe.nook.notes.EpochSecondsClock
@@ -179,9 +179,10 @@ private class WebNookNoteSession private constructor(
                         codec = NookEventCodec(signer),
                         clock = EpochSecondsClock { browserMillis().toLong() / 1_000L },
                     )
-                val transport = client?.let(::KtorRelayTransport) ?: RelayTransport {
-                    error("Relay transport is disabled for this session.")
-                }
+                val transport =
+                    client?.let(::KtorRelayTransport) ?: RelayTransport {
+                        error("Relay transport is disabled for this session.")
+                    }
                 val sync = RelaySync(repository, signer.publicKey, transport, scope, relayUrls)
                 scope.launch {
                     repository.load()

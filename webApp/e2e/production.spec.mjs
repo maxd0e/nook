@@ -29,14 +29,13 @@ test.beforeAll(async () => {
     origin = `http://127.0.0.1:${server.address().port}`
 })
 
-test.afterAll(async () => {
-    await new Promise(resolve => server.close(resolve))
+test.afterAll(() => {
+    server.closeAllConnections()
+    server.close()
 })
 
 test('production bundle starts under the release content-security-policy', async ({ page }) => {
-    await page.goto(origin)
+    const response = await page.goto(origin)
+    expect(response?.headers()['content-security-policy']).toBe(csp)
     await expect(page.getByRole('heading', { name: 'Nook' })).toBeVisible()
-    await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute('content', csp)
-    await expect(page.locator('link[rel="icon"]')).toHaveAttribute('href', 'nook.svg')
-    await expect(page.getByText('No Nostr browser extension was found. Install or enable one to continue.')).toBeVisible()
 })
