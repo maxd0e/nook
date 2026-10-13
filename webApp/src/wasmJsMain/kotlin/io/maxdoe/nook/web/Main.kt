@@ -180,9 +180,10 @@ private fun bindWorkspace() {
         scope.launch {
             observer?.cancel()
             controller.logout()
-            route = "#/notes"
             draft = null
+            route = "#/notes"
             render()
+            window.history.replaceState(null, "", window.location.pathname + window.location.search)
         }
     }
     click("add-toggle") {

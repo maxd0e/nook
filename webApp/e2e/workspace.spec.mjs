@@ -165,6 +165,7 @@ test('browser storage remains ciphertext-only and logout clears the active accou
     expect(JSON.parse(records)).not.toHaveLength(0)
     await page.getByRole('button', { name: 'Log out' }).click()
     await expect(page.getByRole('heading', { name: 'Nook' })).toBeVisible()
+    await expect(page).toHaveURL(`${origin}/`)
     await expect.poll(() => page.evaluate(async () => new Promise((resolve, reject) => {
         const request = indexedDB.open('nook-encrypted-events')
         request.onerror = () => reject(request.error)
