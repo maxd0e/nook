@@ -1,5 +1,18 @@
 # Nook Project Status
 
+## Web visual parity update (2026-10-14)
+
+- The web Welcome screen now renders the bundled Nook SVG, and the former
+  bottom browser-extension guidance notice has been removed. Compatibility
+  warnings and browser-extension sign-in behavior remain unchanged.
+- Web action controls now use the Android vector paths for theme, logout,
+  edit/save, pin, and delete. Note and checklist editors expose a labeled
+  Notes control that returns to the signed-in Notes list.
+- `:webApp:ktlintCheck` and `:webApp:wasmJsBrowserTest` pass. The Playwright
+  Welcome, notes, checklist, and responsive-navigation scenarios pass; the
+  pre-existing browser-storage/logout cleanup scenario still times out while
+  waiting for IndexedDB cleanup and requires separate investigation.
+
 ## Current milestone
 
 **Current: Step 6 — Checklists are complete; device UI verification remains.**

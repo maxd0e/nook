@@ -93,7 +93,7 @@ fun main() {
 private fun render() {
     requireNotNull(document.getElementById("nook-root")).innerHTML =
         when (val screen = controller.screen) {
-            WebLoginScreen.Welcome -> welcomeMarkup().replace("</main>", "${welcomeGuidanceMarkup()}</main>")
+            WebLoginScreen.Welcome -> welcomeMarkup().replace("</main>", "${compatibilityMarkup()}</main>")
             WebLoginScreen.PasteKey -> pasteMarkup()
             is WebLoginScreen.BackupKey -> backupMarkup(screen)
             WebLoginScreen.SignedIn -> workspaceMarkup()
@@ -112,6 +112,7 @@ private fun bind() {
                 "dark"
             },
         )
+        render()
     }
     when (val screen = controller.screen) {
         WebLoginScreen.Welcome -> {
@@ -220,7 +221,7 @@ private fun bindEditor() {
         (current as? Draft.Note)?.body =
             text("editor-body")
     })
-    click("editor-back") {
+    click("editor-notes") {
         scope.launch {
             if (!current.isDirty() || save()) {
                 nav("#/notes")
@@ -342,6 +343,7 @@ private fun listMarkup(
 ): String {
     val pinned = items.filter { it.pinned() }
     val rest = items.filterNot { it.pinned() }
+    val logoutIcon = icon("logout")
     val empty = if (query.isBlank()) "<div class=empty><h2>Create your first note or checklist</h2><p>Use + to get started.</p></div>" else "<div class=empty><h2>No matching notes</h2><p>Try a different search.</p></div>"
     val cards =
         relayHealth(health) +
@@ -368,7 +370,7 @@ private fun listMarkup(
             }
     return "<header class=list-header><span></span>${sync(
         status,
-    )}${themeButton()}<button id=logout class=icon-button aria-label=\"Log out\">↪</button></header><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=Search value=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
+    )}${themeButton()}<button id=logout class=icon-button aria-label=\"Log out\">$logoutIcon</button></header><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=Search value=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
 }
 
 private fun card(item: NookListItem): String =
@@ -393,9 +395,13 @@ private fun detailMarkup(
 ): String {
     if (!detail()) return "<div class=desktop-empty><h1>Select a note</h1><p>Your encrypted notes appear here.</p></div>"
     val current = draft ?: return ""
-    val top = "<header class=editor-header><button id=editor-back class=icon-button aria-label=Back>←</button>${sync(
+    val editorAction = if (current.editing) "Save" else "Edit"
+    val editorIcon = icon(if (current.editing) "save" else "edit")
+    val pinIcon = icon(if (item?.pinned() == true) "pin-filled" else "pin-outline")
+    val deleteIcon = icon("delete")
+    val top = "<header class=editor-header><button id=editor-notes class=notes-button>Notes</button>${sync(
         status,
-    )}<button id=\"${if (current.editing) "editor-save" else "editor-edit"}\" class=icon-button>${if (current.editing) "Save" else "Edit"}</button><button id=editor-pin class=icon-button aria-label=Pin>⌖</button><button id=editor-delete class=icon-button aria-label=Delete>⌫</button></header>"
+    )}<button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button></header>"
     return "$top${relayHealth(health)}" +
         when (current) {
             is Draft.Note -> noteEditor(current)
@@ -417,9 +423,10 @@ private fun noteEditor(note: Draft.Note): String =
 private fun checklistEditor(list: Draft.Checklist): String {
     val active = list.items.filterNot(ChecklistItem::done)
     val done = list.items.filter(ChecklistItem::done)
+    val deleteIcon = icon("delete")
 
     fun row(item: ChecklistItem) =
-        "<li><button data-toggle=\"${item.id.escape()}\" class=\"check ${if (item.done) "done" else ""}\" aria-label=\"Toggle ${item.text.escape()}\">${if (item.done) "✓" else ""}</button>${if (list.editing) "<input data-item-text=\"${item.id.escape()}\" class=checklist-item aria-label=\"Checklist item\" value=\"${item.text.escape()}\"/>" else "<span>${item.text.escape()}</span>"}${if (list.editing) "<button data-delete-item=\"${item.id.escape()}\" class=icon-button aria-label=\"Delete ${item.text.escape()}\">×</button>" else ""}</li>"
+        "<li><button data-toggle=\"${item.id.escape()}\" class=\"check ${if (item.done) "done" else ""}\" aria-label=\"Toggle ${item.text.escape()}\">${if (item.done) "✓" else ""}</button>${if (list.editing) "<input data-item-text=\"${item.id.escape()}\" class=checklist-item aria-label=\"Checklist item\" value=\"${item.text.escape()}\"/>" else "<span>${item.text.escape()}</span>"}${if (list.editing) "<button data-delete-item=\"${item.id.escape()}\" class=icon-button aria-label=\"Delete ${item.text.escape()}\">$deleteIcon</button>" else ""}</li>"
     return "<article class=\"checklist-view ${if (list.editing) "editing" else ""}\">${if (list.editing) {
         "<input id=editor-title class=title-input placeholder=\"Untitled checklist\" value=\"${list.title.escape()}\"/>"
     } else {
@@ -652,7 +659,7 @@ private suspend fun copy(key: String) {
 }
 
 private fun welcomeMarkup() =
-    "<main class=welcome>${themeButton()}<div class=welcome-content><div class=nook-mark>⌂</div><h1>Nook</h1><p class=promise>Your encrypted notes stay yours.</p>${error()}<div class=actions><button id=create-key>Create a new key</button><button id=paste-key class=secondary>I have a Nostr key</button><button id=extension-login class=text-button>Sign in with a browser extension</button></div></div><p class=privacy>Your private key never leaves this browser tab.</p></main>"
+    "<main class=welcome>${themeButton()}<div class=welcome-content><img class=nook-mark src=nook.svg alt=\"Nook logo\"/><h1>Nook</h1><p class=promise>Your encrypted notes stay yours.</p>${error()}<div class=actions><button id=create-key>Create a new key</button><button id=paste-key class=secondary>I have a Nostr key</button><button id=extension-login class=text-button>Sign in with a browser extension</button></div></div><p class=privacy>Your private key never leaves this browser tab.</p></main>"
 
 private fun pasteMarkup() =
     "<main class=\"welcome key-flow\"><button id=back class=back aria-label=Back>←</button>${themeButton()}<div class=welcome-content><p class=eyebrow>Sign in</p><h1>Your Nostr key</h1><p class=promise>Paste your private <code>nsec</code>. It remains in this tab only.</p>${error()}<label for=nsec>Private key</label><input id=nsec type=password autocomplete=off/><button id=continue>Continue</button></div></main>"
@@ -662,20 +669,31 @@ private fun backupMarkup(screen: WebLoginScreen.BackupKey) =
 
 private fun error() = controller.error?.let { "<p class=error role=alert>${it.escape()}</p>" }.orEmpty()
 
-private fun welcomeGuidanceMarkup(): String {
+private fun compatibilityMarkup(): String {
     val compatibility = WebUiBridge.compatibilityError()
-    if (compatibility.isNotBlank()) {
-        return "<p class=compatibility role=alert>${compatibility.escape()}</p>"
-    }
-    val extensionSuffix =
-        Nip07Signer
-            .availabilityErrorOrNull()
-            ?.let { " ${it.escape()}" }
-            .orEmpty()
-    return "<p class=extension-help>Browser-extension sign-in requires a NIP-07 extension with event signing and NIP-44 encryption.$extensionSuffix</p>"
+    return if (compatibility.isNotBlank()) "<p class=compatibility role=alert>${compatibility.escape()}</p>" else ""
 }
 
-private fun themeButton() = "<button id=theme-toggle class=theme-toggle aria-label=\"Toggle theme\">◐</button>"
+private fun themeButton() =
+    "<button id=theme-toggle class=theme-toggle aria-label=\"Toggle theme\">${icon(
+        if (document.documentElement?.classList?.contains("dark") == true) "sun" else "moon",
+    )}</button>"
+
+private fun icon(name: String): String {
+    val path =
+        when (name) {
+            "delete" -> "<path d=\"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12Zm2-10h8v10H8V9Zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5Z\"/>"
+            "edit" -> "<path d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z\"/>"
+            "logout" -> "<path d=\"M5 5c0-1.1.9-2 2-2h5v2H7v14h5v2H7c-1.1 0-2-.9-2-2V5Zm11.6 2.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4 4.4-4.4-4.4-4.4Z\"/>"
+            "moon" -> "<path d=\"M20.5 15.5C15.81 16.55 11.45 13.19 12.5 8.5c.41-1.84 1.4-3.48 2.76-4.71C10.52 2.76 6 6.39 6 11.5 6 15.64 9.36 19 13.5 19c3.08 0 5.73-1.86 7-3.5Z\"/>"
+            "pin-filled" -> "<path d=\"M16 9V4l1-1V2H7v1l1 1v5c0 1.1-.9 2-2 2v2h5v7l1 1 1-1v-7h5v-2c-1.1 0-2-.9-2-2Z\"/>"
+            "pin-outline" -> "<path fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M16 9V4l1-1V2H7v1l1 1v5c0 1.1-.9 2-2 2v2h5v7l1 1 1-1v-7h5v-2c-1.1 0-2-.9-2-2Z\"/>"
+            "save" -> "<path d=\"M17 3H5c-1.1 0-1.99.9-1.99 2L3 19c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4Zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3Zm3-10H5V5h10v4Z\"/>"
+            "sun" -> "<path d=\"M12 4a1 1 0 0 0 1-1V1a1 1 0 0 0-2 0v2a1 1 0 0 0 1 1m0 16a1 1 0 0 0-1 1v2a1 1 0 0 0 2 0v-2a1 1 0 0 0-1-1M4 12a1 1 0 0 0-1-1H1a1 1 0 0 0 0 2h2a1 1 0 0 0 1-1m19-1h-2a1 1 0 0 0 0 2h2a1 1 0 0 0 0-2M6.34 7.76a1 1 0 0 0 1.42-1.42L6.34 4.93a1 1 0 1 0-1.41 1.41l1.41 1.42Zm11.32 8.48a1 1 0 0 0-1.42 1.42l1.41 1.41a1 1 0 0 0 1.42-1.41l-1.41-1.42Zm0-8.48 1.42-1.42a1 1 0 0 0-1.42-1.41l-1.42 1.41a1 1 0 0 0 1.42 1.42M6.34 16.24l-1.41 1.42a1 1 0 0 0 1.41 1.41l1.42-1.41a1 1 0 0 0-1.42-1.42M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10\"/>"
+            else -> error("Unknown icon: $name")
+        }
+    return "<svg class=app-icon viewBox=\"0 0 24 24\" aria-hidden=true focusable=false>$path</svg>"
+}
 
 private fun applyTheme(theme: String) {
     document.documentElement?.classList?.toggle("dark", theme == "dark")
