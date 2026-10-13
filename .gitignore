@@ -20,3 +20,4 @@ docs/status.md
 .kotlin/
 **/node_modules/
 **/test-results/
+webApp/dev-server*.log

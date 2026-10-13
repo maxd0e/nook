@@ -49,3 +49,5 @@ Use `kotlin.test` in `:shared`, JUnit 4 in Android local tests, and AndroidX JUn
 Git history is not available in this checkout, so no repository-specific commit convention can be verified. Use concise imperative subjects, such as `Add note list empty state`. Keep commits focused.
 
 Pull requests should explain the user-visible change, note tests run, link the related issue or spec section, and include screenshots or a short recording for UI changes. Call out new dependencies, migrations, and any security implications, especially changes touching keys, encryption, storage, or relay sync.
+
+Web server is live at http://127.0.0.1:8080/ 
