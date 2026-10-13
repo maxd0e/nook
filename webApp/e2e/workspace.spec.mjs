@@ -123,10 +123,17 @@ test('checklists keep completed items separate and confirm destructive changes',
 test('narrow and desktop layouts preserve read-only and back navigation', async ({ page }) => {
     await page.setViewportSize({ width: 1200, height: 800 })
     await signIn(page)
-    await expect(page.locator('.notes-pane').getByRole('heading', { name: 'Notes' })).toBeVisible()
+    await expect(page.locator('.notes-pane').getByRole('heading', { name: 'Nook' })).toBeVisible()
+    await expect(page.locator('.app-brand-mark')).toHaveAttribute('src', 'nook.svg')
     await expect(page.getByRole('button', { name: 'Toggle theme' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Log out' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Log out' })).toHaveText('')
+    await expect(page.locator('.search-field .app-icon')).toBeVisible()
+    await expect(page.getByLabel('Search notes')).toHaveAttribute('placeholder', 'Search')
     await createNote(page, 'Read only', 'No changes yet')
+    expect(await page.locator('.editor-header').evaluate(header =>
+        [...header.querySelectorAll('button')].map(button => button.id),
+    )).toEqual(['editor-edit', 'editor-pin', 'editor-delete', 'close-editor'])
     await expect(page.locator('.detail-pane .sync')).toHaveCount(0)
     await expect(page.locator('.detail-pane .relay-health')).toHaveCount(0)
     await expect(page.locator('.notes-pane .sync')).toHaveCount(1)

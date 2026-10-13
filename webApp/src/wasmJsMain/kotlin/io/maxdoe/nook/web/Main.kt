@@ -366,7 +366,9 @@ private fun listMarkup(
     val theme = themeButton()
     val statusMarkup = sync(status)
     val healthMarkup = relayHealth(health)
-    return "<header class=list-header><h1 class=notes-title>Notes</h1><div class=list-actions>$theme<button id=logout class=logout-button>$logoutIcon<span>Log out</span></button></div></header><div class=side-status>$statusMarkup$healthMarkup</div><label class=sr-only for=notes-search>Search notes</label><input id=notes-search class=search placeholder=\"${query.escape()}\"/>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">+</button></div>"
+    val searchIcon = icon("search")
+    val addIcon = icon("add")
+    return "<header class=list-header><div class=app-brand><img class=app-brand-mark src=nook.svg alt=\"\"/><h1 class=notes-title>Nook</h1></div><div class=list-actions>$theme<button id=logout class=logout-button aria-label=\"Log out\">$logoutIcon</button></div></header><div class=side-status>$statusMarkup$healthMarkup</div><label class=sr-only for=notes-search>Search notes</label><div class=search-field>$searchIcon<input id=notes-search class=search placeholder=\"Search\" value=\"${query.escape()}\"/></div>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">$addIcon</button></div>"
 }
 
 private fun card(item: NookListItem): String =
@@ -392,7 +394,7 @@ private fun detailMarkup(item: NookListItem?): String {
     val pinIcon = icon(if (item?.pinned() == true) "pin-filled" else "pin-outline")
     val deleteIcon = icon("delete")
     val closeIcon = icon("close")
-    val top = "<header class=editor-header><button id=close-editor class=icon-button aria-label=\"Close note\">$closeIcon</button><span class=editor-header-spacer></span><button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button></header>"
+    val top = "<header class=editor-header><span class=editor-header-spacer></span><button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button><button id=close-editor class=icon-button aria-label=\"Close note\">$closeIcon</button></header>"
     return top +
         when (current) {
             is Draft.Note -> noteEditor(current)
@@ -675,8 +677,10 @@ private fun icon(name: String): String {
         when (name) {
             "delete" -> "<path d=\"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12Zm2-10h8v10H8V9Zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5Z\"/>"
             "close" -> "<path d=\"m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3Z\"/>"
+            "add" -> "<path d=\"M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z\"/>"
             "edit" -> "<path d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z\"/>"
             "logout" -> "<path d=\"M5 5c0-1.1.9-2 2-2h5v2H7v14h5v2H7c-1.1 0-2-.9-2-2V5Zm11.6 2.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4 4.4-4.4-4.4-4.4Z\"/>"
+            "search" -> "<path d=\"m15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5L20.5 19l-5-5Zm-6 0A4.5 4.5 0 1 1 9.5 5a4.5 4.5 0 0 1 0 9Z\"/>"
             "moon" -> "<path d=\"M20.5 15.5C15.81 16.55 11.45 13.19 12.5 8.5c.41-1.84 1.4-3.48 2.76-4.71C10.52 2.76 6 6.39 6 11.5 6 15.64 9.36 19 13.5 19c3.08 0 5.73-1.86 7-3.5Z\"/>"
             "pin-filled" -> "<path d=\"M16 9V4l1-1V2H7v1l1 1v5c0 1.1-.9 2-2 2v2h5v7l1 1 1-1v-7h5v-2c-1.1 0-2-.9-2-2Z\"/>"
             "pin-outline" -> "<path fill=\"none\" stroke=\"currentColor\" stroke-linejoin=\"round\" stroke-width=\"1.5\" d=\"M16 9V4l1-1V2H7v1l1 1v5c0 1.1-.9 2-2 2v2h5v7l1 1 1-1v-7h5v-2c-1.1 0-2-.9-2-2Z\"/>"
