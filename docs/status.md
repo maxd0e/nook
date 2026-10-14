@@ -1,5 +1,19 @@
 # Nook Project Status
 
+## Web logout route reset (2026-10-14)
+
+- Logging out from a routed note or checklist now clears the browser fragment
+  while resetting the in-memory route to Notes.
+- The browser logout/storage scenario verifies the post-logout URL alongside
+  the existing session and IndexedDB cleanup checks.
+
+## Web routed-note reliability fix (2026-10-14)
+
+- Web note and checklist cards now retain the selected item while changing the
+  hash route, so a routing render cannot clear the just-opened detail view.
+- Browser coverage repeatedly opens a note and verifies both its URL and read
+  view; web formatting and browser tests validate the change.
+
 ## Web workspace layout refinement (2026-10-14)
 
 - The signed-in web side panel now uses the Nook logo and wordmark, with an

@@ -53,6 +53,16 @@ async function createNote(page, title, body) {
     await expect(page.getByRole('heading', { name: title })).toBeVisible()
 }
 
+async function repeatedlyOpenNote(page, title) {
+    for (let attempt = 0; attempt < 4; attempt += 1) {
+        await page.getByRole('button', { name: 'Close note' }).click()
+        await expect(page.getByLabel('Search notes')).toBeVisible()
+        await page.getByRole('button', { name: new RegExp(title) }).click()
+        await expect(page).toHaveURL(/#\/note\//)
+        await expect(page.getByRole('heading', { name: title })).toBeVisible()
+    }
+}
+
 async function createChecklist(page, title) {
     await page.getByRole('button', { name: 'Create note or checklist' }).click()
     await page.getByRole('button', { name: 'Checklist' }).click()
@@ -80,6 +90,7 @@ test('welcome is keyboard accessible at desktop and narrow widths', async ({ pag
 test('notes can be created, formatted, pinned, searched, and deleted', async ({ page }) => {
     await signIn(page)
     await createNote(page, 'Garden plan', 'Spring seeds')
+    await repeatedlyOpenNote(page, 'Garden plan')
     await page.getByRole('button', { name: 'Edit' }).click()
     await page.getByRole('button', { name: 'B', exact: true }).click()
     await page.getByRole('button', { name: 'H', exact: true }).click()

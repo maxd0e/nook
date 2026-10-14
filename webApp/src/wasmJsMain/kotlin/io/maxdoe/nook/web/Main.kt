@@ -82,8 +82,11 @@ private data class Confirm(
 fun main() {
     applyTheme(WebUiBridge.loadTheme())
     window.onhashchange = {
-        route = window.location.hash.ifBlank { "#/notes" }
-        draft = null
+        val changedRoute = window.location.hash.ifBlank { "#/notes" }
+        if (route != changedRoute) {
+            route = changedRoute
+            draft = null
+        }
         render()
     }
     route = window.location.hash.ifBlank { "#/notes" }
@@ -208,7 +211,9 @@ private fun bindWorkspace() {
             value("notes-search")
         ; render()
     })
-    bindAll("[data-open]") { nav(it.getAttribute("data-open") ?: "#/notes") }
+    bindAll("[data-open-id]") { node ->
+        node.getAttribute("data-open-id")?.let(::openItem)
+    }
     bindEditor()
 }
 
@@ -374,12 +379,12 @@ private fun listMarkup(
 
 private fun card(item: NookListItem): String =
     when (val payload = item.payload) {
-        is NotePayload -> "<button class=note-card data-open=\"#/note/${item.id}\"><span><strong>${payload.title.ifBlank {
+        is NotePayload -> "<button class=note-card data-open-id=\"${item.id.escape()}\"><span><strong>${payload.title.ifBlank {
             "Untitled"
         }.escape()}</strong><small>${date(
             payload.updatedAt,
         )}</small></span><p>${preview(payload.body).escape()}</p></button>"
-        is ChecklistPayload -> "<button class=note-card data-open=\"#/checklist/${item.id}\"><span><strong>${payload.title.ifBlank {
+        is ChecklistPayload -> "<button class=note-card data-open-id=\"${item.id.escape()}\"><span><strong>${payload.title.ifBlank {
             "Untitled checklist"
         }.escape()}</strong><small>${date(
             payload.updatedAt,
@@ -389,7 +394,9 @@ private fun card(item: NookListItem): String =
 
 private fun detailMarkup(item: NookListItem?): String {
     if (!detail()) return "<div class=desktop-empty><h1>Select a note</h1><p>Your encrypted notes appear here.</p></div>"
-    val current = draft ?: return ""
+    val current =
+        draft
+            ?: return "<div class=desktop-empty><h1>Note unavailable</h1><p>It may still be loading.</p></div>"
     val editorAction = if (current.editing) "Save" else "Edit"
     val editorIcon = icon(if (current.editing) "save" else "edit")
     val pinIcon = icon(if (item?.pinned() == true) "pin-filled" else "pin-outline")
@@ -466,6 +473,31 @@ private fun ensureDraft(item: NookListItem?) {
         }
 }
 
+private fun openItem(id: String) {
+    val item =
+        controller.workspace
+            ?.repository
+            ?.notes
+            ?.value
+            ?.firstOrNull { it.id == id }
+            ?: return
+    val destination =
+        when (item.payload) {
+            is NotePayload -> "#/note/${item.id}"
+            is ChecklistPayload -> "#/checklist/${item.id}"
+            else -> return
+        }
+    draft = item.toDraft()
+    navigate(destination)
+}
+
+private fun NookListItem.toDraft(): Draft =
+    when (val currentPayload = payload) {
+        is NotePayload -> Draft.Note(id, currentPayload.title, currentPayload.body, editing = false)
+        is ChecklistPayload -> Draft.Checklist(id, currentPayload.title, currentPayload.items, editing = false)
+        else -> error("Deleted items cannot be opened")
+    }
+
 private suspend fun save(): Boolean {
     val current = draft ?: return false
     val repository = controller.workspace?.repository ?: return false
@@ -522,11 +554,13 @@ private fun detail() = route.startsWith("#/note/") || route.startsWith("#/checkl
 
 private fun nav(to: String) {
     draft = null
+    navigate(to)
+}
+
+private fun navigate(to: String) {
+    route = to
+    render()
     window.location.hash = to
-    if (route == to) {
-        route = to
-        render()
-    }
 }
 
 private fun click(
