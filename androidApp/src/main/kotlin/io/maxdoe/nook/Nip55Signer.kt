@@ -108,6 +108,7 @@ class Nip55Signer(
             )
     }
 
+    @Suppress("ReturnCount")
     private fun query(
         type: String,
         payload: String,

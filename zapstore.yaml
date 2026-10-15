@@ -1,0 +1,22 @@
+repository: https://github.com/maxd0e/nook
+release_source: ./androidApp/build/outputs/apk/release/androidApp-release.apk
+pubkey: npub1n00kgfep73cu560qqfq5nxcn58azk0y77hm5ja2fallyz6tn5chqu6ly2g
+name: Nook
+summary: Private, encrypted notes and checklists that sync over Nostr.
+description: |
+  Nook is a private Android notes and checklist app.
+
+  Your notes are encrypted to your Nostr public key before they are synced to
+  relays. Create, edit, pin, search, and delete Markdown notes and checklists;
+  Nook continues working offline and syncs when a connection returns.
+
+  Private keys are protected with Android Keystore when you sign in locally.
+  Compatible Android signer apps can keep your key outside Nook.
+tags:
+  - productivity
+  - notes
+  - nostr
+  - privacy
+license: MIT
+website: https://maxd0e.github.io/nook/
+min_allowed_version_code: 1

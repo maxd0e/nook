@@ -9,11 +9,52 @@ import com.vitorpamplona.quartz.nip01Core.signers.NostrSignerSync
 import io.maxdoe.nook.crypto.NostrKeyPair
 
 actual object NostrEventSigner {
-    actual fun sign(event: UnsignedNostrEvent, keyPair: NostrKeyPair): SignedNostrEvent {
-        val signed = NostrSignerSync(KeyPair(keyPair.privateKey())).sign<Event>(event.createdAt, event.kind, event.tags.map { it.toTypedArray() }.toTypedArray(), event.content)
-        return SignedNostrEvent(signed.id, signed.pubKey, signed.createdAt, signed.kind, signed.tags.map { it.toList() }, signed.content, signed.sig)
+    actual fun sign(
+        event: UnsignedNostrEvent,
+        keyPair: NostrKeyPair,
+    ): SignedNostrEvent {
+        val signed =
+            NostrSignerSync(
+                KeyPair(keyPair.privateKey()),
+            ).sign<Event>(
+                event.createdAt,
+                event.kind,
+                event.tags
+                    .map {
+                        it.toTypedArray()
+                    }.toTypedArray(),
+                event.content,
+            )
+        return SignedNostrEvent(
+            signed.id,
+            signed.pubKey,
+            signed.createdAt,
+            signed.kind,
+            signed.tags.map {
+                it.toList()
+            },
+            signed.content,
+            signed.sig,
+        )
     }
-    actual fun verify(event: SignedNostrEvent): Boolean = runCatching {
-        EventHasher.hashId(event.publicKey, event.createdAt, event.kind, event.tags.map { it.toTypedArray() }.toTypedArray(), event.content) == event.id && Nip01Crypto.verify(event.signature.hexToByteArray(), event.id.hexToByteArray(), event.publicKey.hexToByteArray())
-    }.getOrDefault(false)
+
+    actual fun verify(event: SignedNostrEvent): Boolean =
+        runCatching {
+            EventHasher.hashId(
+                event.publicKey,
+                event.createdAt,
+                event.kind,
+                event.tags
+                    .map {
+                        it.toTypedArray()
+                    }.toTypedArray(),
+                event.content,
+            ) ==
+                event.id &&
+                Nip01Crypto.verify(
+                    event.signature.hexToByteArray(),
+                    event.id.hexToByteArray(),
+                    event.publicKey.hexToByteArray(),
+                )
+        }.getOrDefault(false)
 }

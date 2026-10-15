@@ -22,6 +22,7 @@ enum class RelaySyncStatus {
     Synced,
 }
 
+@Suppress("TooManyFunctions", "TooGenericExceptionCaught")
 class RelaySync(
     private val repository: NoteRepository,
     private val publicKey: String,

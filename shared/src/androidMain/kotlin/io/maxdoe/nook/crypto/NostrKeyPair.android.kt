@@ -29,7 +29,10 @@ actual class NostrKeyPair private constructor(
         actual fun decodeNpub(value: String): String? =
             decode(value, "npub")?.takeIf { it.size == KEY_SIZE_BYTES }?.toHexKey()
 
-        private fun decode(value: String, expectedPrefix: String): ByteArray? =
+        private fun decode(
+            value: String,
+            expectedPrefix: String,
+        ): ByteArray? =
             runCatching {
                 require(!value.any(Char::isLowerCase) || !value.any(Char::isUpperCase))
                 val normalized = value.lowercase()

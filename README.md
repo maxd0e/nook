@@ -4,6 +4,8 @@ Nook is a private Android notes and checklist app. Your notes are stored as
 encrypted Nostr events and automatically sync between devices that use the
 same key.
 
+Nook is licensed under the [MIT License](LICENSE).
+
 > Nook is under active development. Before relying on it for important data,
 > review the current project status and complete the outstanding real-device
 > checks described there.

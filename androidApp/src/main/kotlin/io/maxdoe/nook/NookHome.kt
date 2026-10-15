@@ -58,6 +58,7 @@ const val HOME_ROOT_TEST_TAG = "nook_home"
 private const val LOGIN_ROOT_TEST_TAG = "login_root"
 
 @Composable
+@Suppress("CyclomaticComplexMethod")
 fun NookHome(
     sessionStore: LoginSessionStore,
     signerRequester: Nip55ForegroundRequester,

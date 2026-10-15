@@ -1,5 +1,23 @@
 # Nook Project Status
 
+## Release automation preparation (2026-10-15)
+
+- Added the tag-gated Android `v*` release workflow. It runs Android quality
+  checks, requires the protected `zapstore-production` environment before
+  signing, creates or updates the GitHub Release with an APK and checksum, and
+  publishes the signed APK through Zapstore using only a NIP-46 bunker secret.
+- Added committed Zapstore metadata, a first-release changelog, and the MIT
+  license. The workflow never stores a keystore, password, bunker URL, or
+  private key in the repository.
+- Before tagging `v0.1.0`, provision the release keystore and all protected
+  environment secrets, run the one-time Zapstore certificate-link operation,
+  complete the documented manual Android and web acceptance checks, then push
+  `master` followed by the tag.
+- Local validation passes: shared and Android unit tests, Detekt, ktlint,
+  Android Lint, debug assembly, and a signed release build with an ephemeral
+  test keystore. Publication still requires the protected production keystore
+  material and bunker URL.
+
 ## Android/web release-parity polish (2026-10-15)
 
 - The signed-in Android Notes list now shows the compact Nook logo and wordmark

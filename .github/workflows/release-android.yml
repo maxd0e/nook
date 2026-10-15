@@ -1,0 +1,119 @@
+name: Release Android app
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing vX.Y.Z tag to release
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: android-release-${{ inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Verify the tag matches the Android version
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          version="${tag#v}"
+          test "$tag" != "$version"
+          grep -F "versionName = \"$version\"" androidApp/build.gradle.kts
+      - name: Run Android release checks
+        run: >-
+          ./gradlew
+          :shared:testAndroid
+          :androidApp:testDebugUnitTest
+          :shared:detekt
+          :androidApp:detekt
+          :shared:ktlintCheck
+          :androidApp:ktlintCheck
+          :androidApp:lintDebug
+          :androidApp:assembleDebug
+
+  publish:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment: zapstore-production
+    env:
+      ANDROID_RELEASE_KEYSTORE_BASE64: ${{ secrets.ANDROID_RELEASE_KEYSTORE_BASE64 }}
+      ANDROID_RELEASE_STORE_PASSWORD: ${{ secrets.ANDROID_RELEASE_STORE_PASSWORD }}
+      ANDROID_RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_RELEASE_KEY_ALIAS }}
+      ANDROID_RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_RELEASE_KEY_PASSWORD }}
+      SIGN_WITH: ${{ secrets.ZAPSTORE_BUNKER_URL }}
+      GITHUB_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - name: Restore the release keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_RELEASE_KEYSTORE_BASE64"
+          test -n "$ANDROID_RELEASE_STORE_PASSWORD"
+          test -n "$ANDROID_RELEASE_KEY_ALIAS"
+          test -n "$ANDROID_RELEASE_KEY_PASSWORD"
+          keystore="$RUNNER_TEMP/nook-release.jks"
+          printf '%s' "$ANDROID_RELEASE_KEYSTORE_BASE64" | base64 --decode > "$keystore"
+          printf 'KEYSTORE=%s\n' "$keystore" >> "$GITHUB_ENV"
+      - name: Build and verify the signed release APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          ./gradlew :androidApp:assembleRelease \
+            -PnookReleaseStoreFile="$KEYSTORE" \
+            -PnookReleaseStorePassword="$ANDROID_RELEASE_STORE_PASSWORD" \
+            -PnookReleaseKeyAlias="$ANDROID_RELEASE_KEY_ALIAS" \
+            -PnookReleaseKeyPassword="$ANDROID_RELEASE_KEY_PASSWORD"
+          apk="androidApp/build/outputs/apk/release/androidApp-release.apk"
+          test -f "$apk"
+          keytool -printcert -jarfile "$apk" | grep -F "Owner:"
+          sha256sum "$apk" > androidApp/build/outputs/apk/release/SHA256SUMS.txt
+      - name: Install Zapstore publisher
+        run: go install github.com/zapstore/zsp@latest
+      - name: Inspect APK metadata
+        shell: bash
+        run: "$HOME/go/bin/zsp apk --extract androidApp/build/outputs/apk/release/androidApp-release.apk"
+      - name: Create or update the GitHub release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ inputs.tag || github.ref_name }}"
+          apk="androidApp/build/outputs/apk/release/androidApp-release.apk"
+          sums="androidApp/build/outputs/apk/release/SHA256SUMS.txt"
+          if gh release view "$tag" >/dev/null 2>&1; then
+            gh release upload "$tag" "$apk#nook-${tag}.apk" "$sums#SHA256SUMS.txt" --clobber
+          else
+            gh release create "$tag" "$apk#nook-${tag}.apk" "$sums#SHA256SUMS.txt" --title "Nook ${tag}" --generate-notes
+          fi
+      - name: Publish to Zapstore
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SIGN_WITH"
+          "$HOME/go/bin/zsp" publish -y --commit "$(git rev-parse HEAD)" zapstore.yaml

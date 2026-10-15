@@ -455,6 +455,7 @@ private fun NotesListSectionTitle(label: String) {
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun NookCard(
     item: NookListItem,
     onOpenNote: (String) -> Unit,

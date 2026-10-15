@@ -16,11 +16,20 @@ external object NostrToolsBridge {
 
     fun decodeNpub(npub: String): String
 
-    fun encryptToSelf(plaintext: String, nsec: String): String
+    fun encryptToSelf(
+        plaintext: String,
+        nsec: String,
+    ): String
 
-    fun decryptFromSelf(ciphertext: String, nsec: String): String
+    fun decryptFromSelf(
+        ciphertext: String,
+        nsec: String,
+    ): String
 
-    fun signEvent(eventJson: String, nsec: String): String
+    fun signEvent(
+        eventJson: String,
+        nsec: String,
+    ): String
 
     fun verifyEvent(eventJson: String): Boolean
 }

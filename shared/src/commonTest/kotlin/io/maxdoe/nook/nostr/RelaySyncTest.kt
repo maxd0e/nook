@@ -9,7 +9,6 @@ import io.maxdoe.nook.notes.NotePayload
 import io.maxdoe.nook.notes.NoteRepository
 import io.maxdoe.nook.notes.TombstonePayload
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay

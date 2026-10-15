@@ -5,6 +5,11 @@ plugins {
     alias(libs.plugins.ktlint)
 }
 
+val releaseStoreFile = providers.gradleProperty("nookReleaseStoreFile").orNull
+val releaseStorePassword = providers.gradleProperty("nookReleaseStorePassword").orNull
+val releaseKeyAlias = providers.gradleProperty("nookReleaseKeyAlias").orNull
+val releaseKeyPassword = providers.gradleProperty("nookReleaseKeyPassword").orNull
+
 android {
     namespace = "io.maxdoe.nook"
     compileSdk {
@@ -16,13 +21,20 @@ android {
         minSdk = 26
         targetSdk = 37
         versionCode = 1
-        versionName = "1.0"
+        versionName = "0.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     buildTypes {
         release {
+            signingConfig =
+                signingConfigs.create("release") {
+                    storeFile = releaseStoreFile?.let(::file)
+                    storePassword = releaseStorePassword
+                    keyAlias = releaseKeyAlias
+                    keyPassword = releaseKeyPassword
+                }
             optimization {
                 enable = true
                 packageScope = setOf("androidx.**", "kotlin.**", "kotlinx.**")

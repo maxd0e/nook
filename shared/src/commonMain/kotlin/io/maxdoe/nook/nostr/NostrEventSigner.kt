@@ -20,7 +20,10 @@ data class SignedNostrEvent(
 )
 
 expect object NostrEventSigner {
-    fun sign(event: UnsignedNostrEvent, keyPair: NostrKeyPair): SignedNostrEvent
+    fun sign(
+        event: UnsignedNostrEvent,
+        keyPair: NostrKeyPair,
+    ): SignedNostrEvent
 
     fun verify(event: SignedNostrEvent): Boolean
 }
