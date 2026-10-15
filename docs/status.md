@@ -5,6 +5,12 @@
 - Fixed the `continueListOnEnter` Kotlin chain formatting that blocked the
   GitHub Pages workflow before its Wasm tests and deployment steps.
 
+## Android release APK verification repair (2026-10-15)
+
+- Replaced the JAR-signature `keytool` output check with Android's `apksigner`
+  verification after the signed APK build succeeded but the former command
+  failed to find an `Owner:` line for the APK signing scheme.
+
 ## Release automation preparation (2026-10-15)
 
 - Added the tag-gated Android `v*` release workflow. It runs Android quality

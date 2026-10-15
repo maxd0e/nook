@@ -94,7 +94,9 @@ jobs:
             -PnookReleaseKeyPassword="$ANDROID_RELEASE_KEY_PASSWORD"
           apk="androidApp/build/outputs/apk/release/androidApp-release.apk"
           test -f "$apk"
-          keytool -printcert -jarfile "$apk" | grep -F "Owner:"
+          apksigner="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
+          test -n "$apksigner"
+          "$apksigner" verify --verbose --print-certs "$apk"
           sha256sum "$apk" > androidApp/build/outputs/apk/release/SHA256SUMS.txt
       - name: Install Zapstore publisher
         run: go install github.com/zapstore/zsp@latest
