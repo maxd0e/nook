@@ -433,7 +433,7 @@ private fun noteEditorMarkup(note: Draft.Note): String =
             "<button id=format-heading aria-label=\"Heading\">H</button>" +
             "<button id=format-bullet aria-label=\"Bullet list\">${icon("bullet-list")}</button>" +
             "<button id=format-numbered aria-label=\"Numbered list\">${icon("numbered-list")}</button>" +
-            "</nav>$typeSwitch</div>"
+            "$typeSwitch</nav></div>"
     } else {
         val title = note.title.ifBlank { "Untitled" }.escape()
         "<article class=read-view><h1>$title</h1><div class=markdown>${markdown(note.body)}</div></article>"

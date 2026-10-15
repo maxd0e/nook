@@ -64,7 +64,10 @@ async function repeatedlyOpenNote(page, title) {
 
 async function createChecklist(page, title) {
     await page.getByRole('button', { name: 'New note' }).click()
-    await page.getByRole('button', { name: 'Create checklist instead' }).click()
+    const createChecklist = page.getByRole('button', { name: 'Create checklist instead' })
+    await expect(createChecklist).toBeVisible()
+    await expect(createChecklist.locator('xpath=..')).toHaveClass(/format-toolbar/)
+    await createChecklist.click()
     await page.locator('#editor-title').fill(title)
     await page.locator('#new-item').fill('First item')
     await page.getByRole('button', { name: 'Add' }).click()
