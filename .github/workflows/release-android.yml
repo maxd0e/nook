@@ -28,6 +28,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - run: chmod +x gradlew
       - name: Verify the tag matches the Android version
         shell: bash
         run: |
@@ -67,6 +68,7 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
+      - run: chmod +x gradlew
       - uses: actions/setup-go@v5
         with:
           go-version: stable
