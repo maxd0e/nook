@@ -17,6 +17,9 @@
   package (`github.com/zapstore/zsp/cmd/zsp`) rather than its library module.
   The previous `go install github.com/zapstore/zsp@latest` command fails now
   that the module root is no longer a Go `main` package.
+- Updated the metadata verification invocation to the CLI's current
+  `utils extract-apk` command after the release build and publisher
+  installation passed but the retired `apk --extract` command was rejected.
 
 ## Release automation preparation (2026-10-15)
 

@@ -102,7 +102,7 @@ jobs:
         run: go install github.com/zapstore/zsp/cmd/zsp@latest
       - name: Inspect APK metadata
         shell: bash
-        run: "$HOME/go/bin/zsp apk --extract androidApp/build/outputs/apk/release/androidApp-release.apk"
+        run: "$HOME/go/bin/zsp utils extract-apk androidApp/build/outputs/apk/release/androidApp-release.apk"
       - name: Create or update the GitHub release
         shell: bash
         run: |
