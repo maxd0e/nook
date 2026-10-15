@@ -1,5 +1,19 @@
 # Nook Project Status
 
+## Web checklist inline-add editing update (2026-10-15)
+
+- Adding a checklist item in the web editor now persists the item while keeping
+  the editor active for consecutive entries; the toolbar Save action still
+  switches to the read-only view.
+- A new note can now switch to a checklist after its title is entered, retaining
+  that title; body text still prevents a type switch until cleared.
+- Checklist rows now appear immediately on add and retain focus in the next
+  entry field while serialized background saves protect newer item-label edits
+  from older save completions and background workspace redraws.
+- Playwright coverage verifies two consecutive additions remain editable before
+  an explicit Save displays both persisted items, and verifies title-preserving
+  switching plus the body-text guard and optimistic label preservation.
+
 ## Web workspace and deletion reliability update (2026-10-15)
 
 - Replaced the web workspace's floating add control with a rectangular New note

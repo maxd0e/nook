@@ -16,6 +16,8 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.await
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLTextAreaElement
 import kotlin.js.JsModule
@@ -29,6 +31,9 @@ private var route = "#/notes"
 private var query = ""
 private var confirm: Confirm? = null
 private var draft: Draft? = null
+private val checklistSaveMutex = Mutex()
+private var checklistSavePending = false
+private var checklistSaveJob: Job? = null
 
 private sealed interface Draft {
     var id: String?
@@ -218,12 +223,15 @@ private fun bindEditor() {
             value("editor-title")
     })
     (document.getElementById("editor-body") as? HTMLTextAreaElement)?.addEventListener("input", {
-        (current as? Draft.Note)?.body =
-            text("editor-body")
+        val note = current as? Draft.Note ?: return@addEventListener
+        note.body = text("editor-body")
+        document.getElementById("switch-to-checklist")?.let { typeSwitch ->
+            if (note.body.isBlank()) typeSwitch.removeAttribute("hidden") else typeSwitch.setAttribute("hidden", "")
+        }
     })
     click("close-editor") {
         scope.launch {
-            if (!current.isDirty() || save()) {
+            if (!current.isDirty() || saveAfterChecklistQueue()) {
                 nav("#/notes")
             }
         }
@@ -234,13 +242,13 @@ private fun bindEditor() {
     }
     click("editor-save") {
         scope.launch {
-            save()
+            saveAfterChecklistQueue()
             render()
         }
     }
     click("editor-pin") {
         scope.launch {
-            save()
+            saveAfterChecklistQueue()
             selected()?.let { controller.workspace?.repository?.setPinned(it.id, !it.pinned()) }
             render()
         }
@@ -265,8 +273,8 @@ private fun bindEditor() {
     click("format-numbered") { prefix("1. ") }
     click("switch-to-checklist") {
         val note = current as? Draft.Note ?: return@click
-        if (note.id == null && note.title.isBlank() && note.body.isBlank()) {
-            draft = Draft.Checklist(null, "", emptyList(), editing = true)
+        if (note.id == null && note.body.isBlank()) {
+            draft = Draft.Checklist(null, note.title, emptyList(), editing = true)
             render()
         }
     }
@@ -283,6 +291,7 @@ private fun bindChecklist(current: Draft.Checklist) {
                         current.items.map { item ->
                             if (item.id == id) item.copy(text = input.value) else item
                         }
+                    queueChecklistSave()
                 }
             })
         }
@@ -291,10 +300,9 @@ private fun bindChecklist(current: Draft.Checklist) {
         value("new-item").trim().takeIf(String::isNotEmpty)?.let {
             current.items =
                 current.items + ChecklistItem(randomId(), it, false)
-            ; scope.launch {
-                save()
-                render()
-            }
+            render()
+            focusNewChecklistItem()
+            queueChecklistSave()
         }
     }
     click("clear-completed") {
@@ -302,7 +310,7 @@ private fun bindChecklist(current: Draft.Checklist) {
             Confirm("Clear completed?", "All completed checklist items will be permanently deleted.") {
                 current.items =
                     current.items.filterNot(ChecklistItem::done)
-                ; save()
+                ; queueChecklistSave()
             }
         ; render()
     }
@@ -310,10 +318,8 @@ private fun bindChecklist(current: Draft.Checklist) {
         node.getAttribute("data-toggle")?.let { id ->
             current.items =
                 current.items.map { if (it.id == id) it.copy(done = !it.done) else it }
-            ; scope.launch {
-                save()
-                render()
-            }
+            render()
+            queueChecklistSave()
         }
     }
     bindAll("[data-delete-item]") { node ->
@@ -322,7 +328,7 @@ private fun bindChecklist(current: Draft.Checklist) {
                 Confirm("Delete item?", "This checklist item will be permanently deleted.") {
                     current.items =
                         current.items.filterNot { it.id == id }
-                    ; save()
+                    ; queueChecklistSave()
                 }
             ; render()
         }
@@ -419,7 +425,7 @@ private fun detailMarkup(item: NookListItem?): String {
 private fun noteEditorMarkup(note: Draft.Note): String =
     if (note.editing) {
         val typeSwitch =
-            if (note.id == null && note.title.isBlank() && note.body.isBlank()) {
+            if (note.id == null && note.body.isBlank()) {
                 "<button id=switch-to-checklist class=switch-type-button>Create checklist instead</button>"
             } else {
                 ""
@@ -516,7 +522,28 @@ private fun NookListItem.toDraft(): Draft =
         else -> error("Deleted items cannot be opened")
     }
 
-private suspend fun save(): Boolean {
+private fun queueChecklistSave() {
+    checklistSavePending = true
+    if (checklistSaveJob?.isActive == true) return
+    checklistSaveJob =
+        scope.launch {
+            while (checklistSavePending) {
+                checklistSavePending = false
+                save(keepEditing = true)
+            }
+        }
+}
+
+private suspend fun saveAfterChecklistQueue(keepEditing: Boolean = false): Boolean {
+    checklistSaveJob?.join()
+    return save(keepEditing)
+}
+
+private fun focusNewChecklistItem() {
+    (document.getElementById("new-item") as? HTMLInputElement)?.focus()
+}
+
+private suspend fun save(keepEditing: Boolean = false): Boolean {
     val current = draft ?: return false
     val repository = controller.workspace?.repository ?: return false
     return try {
@@ -536,29 +563,41 @@ private suspend fun save(): Boolean {
                     repository.updateNote(id, current.title, current.body)
                 }
             }
-            is Draft.Checklist -> {
-                val isNew = current.id == null
-                val id = current.id ?: randomId()
-                if (current.title.isBlank() && current.items.isEmpty()) return false
-                if (isNew) {
-                    repository.createChecklist(
-                        id,
-                        current.title,
-                        current.items,
-                    )
-                    current.id = id
-                } else {
-                    repository.updateChecklist(id, current.title, current.items)
-                }
-            }
+            is Draft.Checklist -> return saveChecklist(current, repository, keepEditing)
         }
         current.markSaved()
-        current.editing = false
+        if (!keepEditing) current.editing = false
         true
     } catch (_: Throwable) {
         false
     }
 }
+
+private suspend fun saveChecklist(
+    current: Draft.Checklist,
+    repository: io.maxdoe.nook.notes.NoteRepository,
+    keepEditing: Boolean,
+): Boolean =
+    checklistSaveMutex.withLock {
+        val title = current.title
+        val items = current.items
+        if (title.isBlank() && items.isEmpty()) return@withLock false
+        val id = current.id ?: randomId().also { current.id = it }
+        try {
+            if (repository.notes.value.any { it.id == id }) {
+                repository.updateChecklist(id, title, items)
+            } else {
+                repository.createChecklist(id, title, items)
+            }
+            if (current.title == title && current.items == items) {
+                current.markSaved()
+                if (!keepEditing) current.editing = false
+            }
+            true
+        } catch (_: Throwable) {
+            false
+        }
+    }
 
 private fun selected(): NookListItem? =
     controller.workspace?.repository?.notes?.value?.firstOrNull {
@@ -688,10 +727,14 @@ private fun observe() {
     observer?.cancel()
     observer =
         scope.launch {
-            launch { ws.repository.notes.collect { render() } }
-            launch { ws.syncStatus.collect { render() } }
-            launch { ws.syncHealth.collect { render() } }
+            launch { ws.repository.notes.collect { renderIfNotEditing() } }
+            launch { ws.syncStatus.collect { renderIfNotEditing() } }
+            launch { ws.syncHealth.collect { renderIfNotEditing() } }
         }
+}
+
+private fun renderIfNotEditing() {
+    if (draft?.editing != true) render()
 }
 
 private suspend fun copy(key: String) {
