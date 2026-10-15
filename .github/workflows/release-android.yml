@@ -120,4 +120,4 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$SIGN_WITH"
-          "$HOME/go/bin/zsp" publish -y --commit "$(git rev-parse HEAD)" zapstore.yaml
+          "$HOME/go/bin/zsp" publish --quiet --skip-preview --commit "$(git rev-parse HEAD)" zapstore.yaml

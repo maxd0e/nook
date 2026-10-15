@@ -20,6 +20,8 @@
 - Updated the metadata verification invocation to the CLI's current
   `utils extract-apk` command after the release build and publisher
   installation passed but the retired `apk --extract` command was rejected.
+- Replaced the retired `-y` confirmation flag on the publish command with
+  `--quiet --skip-preview`, the current non-interactive Zapstore CLI flags.
 
 ## Release automation preparation (2026-10-15)
 
