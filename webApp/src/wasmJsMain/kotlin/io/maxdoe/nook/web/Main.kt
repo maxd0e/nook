@@ -680,7 +680,12 @@ private fun continueListOnEnter(
     val insertion = input.selectionStart
     val currentLine = input.value.substring(0, insertion).substringAfterLast('\n')
     val prefix =
-        numberedListPrefix.matchEntire(currentLine)?.groupValues?.get(1)?.toIntOrNull()?.let { "\n${it + 1}. " }
+        numberedListPrefix
+            .matchEntire(currentLine)
+            ?.groupValues
+            ?.get(1)
+            ?.toIntOrNull()
+            ?.let { "\n${it + 1}. " }
             ?: if (currentLine.startsWith("- ")) "\n- " else return false
     input.value = input.value.substring(0, insertion) + prefix + input.value.substring(insertion)
     input.selectionStart = insertion + prefix.length

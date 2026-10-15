@@ -1,5 +1,10 @@
 # Nook Project Status
 
+## Web deployment formatting repair (2026-10-15)
+
+- Fixed the `continueListOnEnter` Kotlin chain formatting that blocked the
+  GitHub Pages workflow before its Wasm tests and deployment steps.
+
 ## Release automation preparation (2026-10-15)
 
 - Added the tag-gated Android `v*` release workflow. It runs Android quality
