@@ -12,6 +12,15 @@
 - The note formatting toolbar now uses compact, aligned B/I/H/list/numbered
   controls directly above the Android navigation bar without covering native
   Back or Home controls.
+- Numbered-list insertion now continues an adjacent sequence (1, 2, 3) instead
+  of restarting every item at 1.
+- The compact numbered-list action now renders literal two-row `1.` and `2.`
+  glyphs in Compose, avoiding unreadable VectorDrawable number paths.
+- Pressing Enter from a numbered note item now inserts the next number and
+  keeps the cursor ready for the next entry.
+- Android and web editors now also continue `- ` bullet items on Enter.
+- The web editor now uses the same readable literal 1/2 numbered-list control
+  and continues numbered items on Enter.
 - Added focused Compose and markdown regression coverage. Pending validation:
   Android compilation/tests and release quality checks.
 

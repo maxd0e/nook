@@ -30,7 +30,42 @@ internal fun insertHeading(value: TextFieldValue): TextFieldValue = prefixCurren
 
 internal fun insertBullet(value: TextFieldValue): TextFieldValue = prefixCurrentLine(value, "- ")
 
-internal fun insertNumberedList(value: TextFieldValue): TextFieldValue = prefixCurrentLine(value, "1. ")
+internal fun insertNumberedList(value: TextFieldValue): TextFieldValue {
+    val lineStart = value.text.lastIndexOf('\n', value.selection.start - 1).let { if (it < 0) 0 else it + 1 }
+    val previousLine =
+        value.text.substring(0, lineStart).removeSuffix("\n").substringAfterLast('\n').trim()
+    val nextNumber =
+        NUMBERED_LIST_PREFIX.matchEntire(previousLine)?.groupValues?.get(1)?.toIntOrNull()?.plus(1) ?: 1
+    return prefixCurrentLine(value, "$nextNumber. ")
+}
+
+internal fun continueListOnEnter(
+    previous: TextFieldValue,
+    proposed: TextFieldValue,
+): TextFieldValue {
+    val insertion = previous.selection.start
+    if (
+        !previous.selection.collapsed ||
+        !proposed.selection.collapsed ||
+        proposed.selection.start != insertion + 1 ||
+        proposed.text != previous.text.substring(0, insertion) + "\n" + previous.text.substring(insertion)
+    ) {
+        return proposed
+    }
+
+    val currentLine = previous.text.substring(0, insertion).substringAfterLast('\n')
+    val prefix =
+        NUMBERED_LIST_PREFIX.matchEntire(currentLine)?.groupValues?.get(1)?.toIntOrNull()?.let { "${it + 1}. " }
+            ?: if (currentLine.startsWith("- ")) "- " else return proposed
+    return proposed.replace(
+        insertion + 1,
+        insertion + 1,
+        prefix,
+        TextRange(insertion + 1 + prefix.length),
+    )
+}
+
+private val NUMBERED_LIST_PREFIX = Regex("(\\d+)\\. .*")
 
 private fun prefixCurrentLine(
     value: TextFieldValue,

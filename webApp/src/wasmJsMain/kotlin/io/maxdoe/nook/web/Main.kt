@@ -20,6 +20,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.w3c.dom.HTMLInputElement
 import org.w3c.dom.HTMLTextAreaElement
+import org.w3c.dom.events.KeyboardEvent
 import kotlin.js.JsModule
 import kotlin.js.JsString
 import kotlin.js.Promise
@@ -227,6 +228,13 @@ private fun bindEditor() {
         note.body = text("editor-body")
         document.getElementById("switch-to-checklist")?.let { typeSwitch ->
             if (note.body.isBlank()) typeSwitch.removeAttribute("hidden") else typeSwitch.setAttribute("hidden", "")
+        }
+    })
+    (document.getElementById("editor-body") as? HTMLTextAreaElement)?.addEventListener("keydown", { event ->
+        val note = current as? Draft.Note ?: return@addEventListener
+        val keyboardEvent = event as? KeyboardEvent ?: return@addEventListener
+        if (keyboardEvent.key == "Enter" && continueListOnEnter(keyboardEvent, note)) {
+            keyboardEvent.preventDefault()
         }
     })
     click("close-editor") {
@@ -438,7 +446,7 @@ private fun noteEditorMarkup(note: Draft.Note): String =
             "<button id=format-italic aria-label=\"Italic\"><i>I</i></button>" +
             "<button id=format-heading aria-label=\"Heading\">H</button>" +
             "<button id=format-bullet aria-label=\"Bullet list\">${icon("bullet-list")}</button>" +
-            "<button id=format-numbered aria-label=\"Numbered list\">${icon("numbered-list")}</button>" +
+            "<button id=format-numbered aria-label=\"Numbered list\">${numberedListIcon()}</button>" +
             "$typeSwitch</nav></div>"
     } else {
         val title = note.title.ifBlank { "Untitled" }.escape()
@@ -661,6 +669,26 @@ private fun prefix(value: String) {
     }
 }
 
+private val numberedListPrefix = Regex("(\\d+)\\. .*")
+
+private fun continueListOnEnter(
+    event: KeyboardEvent,
+    note: Draft.Note,
+): Boolean {
+    val input = event.target as? HTMLTextAreaElement ?: return false
+    if (input.selectionStart != input.selectionEnd) return false
+    val insertion = input.selectionStart
+    val currentLine = input.value.substring(0, insertion).substringAfterLast('\n')
+    val prefix =
+        numberedListPrefix.matchEntire(currentLine)?.groupValues?.get(1)?.toIntOrNull()?.let { "\n${it + 1}. " }
+            ?: if (currentLine.startsWith("- ")) "\n- " else return false
+    input.value = input.value.substring(0, insertion) + prefix + input.value.substring(insertion)
+    input.selectionStart = insertion + prefix.length
+    input.selectionEnd = insertion + prefix.length
+    note.body = input.value
+    return true
+}
+
 private fun date(seconds: Long): String {
     val age =
         (browserNow() / 1000).toLong() - seconds
@@ -769,6 +797,9 @@ private fun themeButton() =
         if (document.documentElement?.classList?.contains("dark") == true) "sun" else "moon",
     )}</button>"
 
+private fun numberedListIcon() =
+    "<span class=numbered-list-icon aria-hidden=true><span>1.<br>2.</span><span><i></i><i></i></span></span>"
+
 private fun icon(name: String): String {
     val path =
         when (name) {
@@ -776,7 +807,6 @@ private fun icon(name: String): String {
             "close" -> "<path d=\"m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3Z\"/>"
             "add" -> "<path d=\"M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z\"/>"
             "bullet-list" -> "<circle cx=\"5\" cy=\"6\" r=\"1.5\"/><circle cx=\"5\" cy=\"12\" r=\"1.5\"/><circle cx=\"5\" cy=\"18\" r=\"1.5\"/><path d=\"M9 5h10v2H9zm0 6h10v2H9zm0 6h10v2H9z\"/>"
-            "numbered-list" -> "<path d=\"M4 5h1v4H4V6H3V5h1Zm-1 7h2v1H4v1h1v1H3v-1h1v-1H3v-1Zm0 6h2v1H4v1h1v1H3v-1h1v-1H3v-1Zm6-13h10v2H9zm0 6h10v2H9zm0 6h10v2H9z\"/>"
             "edit" -> "<path d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z\"/>"
             "logout" -> "<path d=\"M5 5c0-1.1.9-2 2-2h5v2H7v14h5v2H7c-1.1 0-2-.9-2-2V5Zm11.6 2.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4 4.4-4.4-4.4-4.4Z\"/>"
             "search" -> "<path d=\"m15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5L20.5 19l-5-5Zm-6 0A4.5 4.5 0 1 1 9.5 5a4.5 4.5 0 0 1 0 9Z\"/>"

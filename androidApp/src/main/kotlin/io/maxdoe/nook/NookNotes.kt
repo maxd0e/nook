@@ -700,7 +700,7 @@ private fun NoteEditor(
             Spacer(Modifier.height(14.dp))
             OutlinedTextField(
                 value = body,
-                onValueChange = { body = it },
+                onValueChange = { body = continueListOnEnter(body, it) },
                 modifier = Modifier.fillMaxWidth().weight(1f).testTag("note_body"),
                 placeholder = { Text("Start writing…", fontSize = 17.sp) },
                 textStyle =
@@ -1236,7 +1236,7 @@ private fun MarkdownToolbar(
         ToolbarTextAction("I", "Italic", FontWeight.Normal, onItalic)
         ToolbarTextAction("H", "Heading", FontWeight.Normal, onHeading)
         ToolbarIconAction(R.drawable.ic_bullet_list, "Bullet list", onBullet)
-        ToolbarIconAction(R.drawable.ic_numbered_list, "Numbered list", onNumbered)
+        ToolbarNumberedListAction(onNumbered)
     }
 }
 
@@ -1271,6 +1271,45 @@ private fun ToolbarTextAction(
             fontWeight = weight,
             modifier = Modifier.semantics { contentDescription = description },
         )
+    }
+}
+
+@Composable
+private fun ToolbarNumberedListAction(action: () -> Unit) {
+    IconButton(
+        onClick = action,
+        modifier = Modifier.size(40.dp).semantics { contentDescription = "Numbered list" },
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    "1.",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 9.sp,
+                    lineHeight = 9.sp,
+                )
+                Text(
+                    "2.",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 9.sp,
+                    lineHeight = 9.sp,
+                )
+            }
+            Column(
+                modifier = Modifier.height(20.dp).padding(vertical = 3.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Box(
+                    Modifier.width(10.dp).height(2.dp).background(MaterialTheme.colorScheme.primary),
+                )
+                Box(
+                    Modifier.width(10.dp).height(2.dp).background(MaterialTheme.colorScheme.primary),
+                )
+            }
+        }
     }
 }
 

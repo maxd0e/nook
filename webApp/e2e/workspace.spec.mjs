@@ -104,6 +104,12 @@ test('notes can be created, formatted, pinned, searched, and deleted', async ({ 
     await expect(page.locator('.markdown h2 strong')).toContainText('Spring seeds')
     await page.getByRole('button', { name: 'Edit' }).click()
     await page.getByRole('button', { name: 'Numbered list' }).click()
+    await page.locator('#editor-body').press('End')
+    await page.locator('#editor-body').press('Enter')
+    await page.locator('#editor-body').type('Second')
+    await page.locator('#editor-body').press('End')
+    await page.locator('#editor-body').press('Enter')
+    await expect(page.locator('#editor-body')).toHaveValue('1. **## Spring seeds**\n2. Second\n3. ')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.locator('.markdown .numbered')).toContainText('1.')
     await page.getByRole('button', { name: 'Pin' }).click()
@@ -121,6 +127,20 @@ test('notes can be created, formatted, pinned, searched, and deleted', async ({ 
     await page.getByRole('button', { name: 'Delete' }).click()
     await page.getByRole('button', { name: 'Delete' }).last().click()
     await expect(page.getByRole('heading', { name: 'Create your first note or checklist' })).toBeVisible()
+})
+
+test('bullet lists continue when Enter is pressed', async ({ page }) => {
+    await signIn(page)
+    await page.getByRole('button', { name: 'New note' }).click()
+    await page.locator('#editor-title').fill('Bullet list')
+    await page.locator('#editor-body').fill('First')
+    await page.getByRole('button', { name: 'Bullet list' }).click()
+    await page.locator('#editor-body').press('End')
+    await page.locator('#editor-body').press('Enter')
+    await page.locator('#editor-body').type('Second')
+    await page.locator('#editor-body').press('End')
+    await page.locator('#editor-body').press('Enter')
+    await expect(page.locator('#editor-body')).toHaveValue('- First\n- Second\n- ')
 })
 
 test('checklists keep completed items separate and confirm destructive changes', async ({ page }) => {
