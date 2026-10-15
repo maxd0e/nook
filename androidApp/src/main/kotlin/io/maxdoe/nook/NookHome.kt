@@ -180,7 +180,13 @@ fun NookHome(
                 )
             LoginScreen.SignedIn ->
                 noteSession?.let { session ->
-                    NookNotes(session.repository, session.syncStatus, session.syncHealth) {
+                    NookNotes(
+                        repository = session.repository,
+                        syncStatus = session.syncStatus,
+                        syncHealth = session.syncHealth,
+                        isDarkTheme = isDarkTheme,
+                        onThemeToggle = onThemeToggle,
+                    ) {
                         coroutineScope.launch {
                             session.close()
                             noteSession = null
@@ -420,10 +426,10 @@ private fun screenModifier(): Modifier =
     Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.statusBars).padding(horizontal = 28.dp)
 
 @Composable
-private fun NookLogo() {
+internal fun NookLogo(modifier: Modifier = Modifier.size(64.dp)) {
     androidx.compose.foundation.Image(
         painter = painterResource(R.drawable.nook_logo),
         contentDescription = "Nook logo",
-        modifier = Modifier.size(64.dp),
+        modifier = modifier,
     )
 }

@@ -35,6 +35,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -56,9 +58,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -125,6 +127,8 @@ fun NookNotes(
     repository: NoteRepository,
     syncStatus: StateFlow<RelaySyncStatus> = OfflineSyncStatus,
     syncHealth: StateFlow<RelaySyncHealth> = OfflineRelayHealth,
+    isDarkTheme: Boolean = false,
+    onThemeToggle: () -> Unit = {},
     onLogout: () -> Unit,
 ) {
     var destination by remember { mutableStateOf<NotesDestination>(NotesDestination.List) }
@@ -138,6 +142,8 @@ fun NookNotes(
                 onOpenChecklist = { destination = NotesDestination.ChecklistEditor(it, startsInEditMode = false) },
                 syncStatus = syncStatus,
                 syncHealth = syncHealth,
+                isDarkTheme = isDarkTheme,
+                onThemeToggle = onThemeToggle,
                 onLogout = onLogout,
             )
         is NotesDestination.Editor ->
@@ -171,6 +177,8 @@ private fun NotesList(
     onOpenChecklist: (String) -> Unit,
     syncStatus: StateFlow<RelaySyncStatus>,
     syncHealth: StateFlow<RelaySyncHealth>,
+    isDarkTheme: Boolean,
+    onThemeToggle: () -> Unit,
     onLogout: () -> Unit,
 ) {
     val notes by repository.notes.collectAsState()
@@ -190,9 +198,24 @@ private fun NotesList(
             item {
                 Spacer(Modifier.height(32.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
+                    NookLogo(Modifier.size(30.dp))
+                    Spacer(Modifier.width(10.dp))
+                    Text("Nook", style = MaterialTheme.typography.displayLarge, fontSize = 28.sp)
                     Spacer(Modifier.weight(1f))
-                    SyncStatus(currentSyncStatus, currentSyncHealth)
-                    Spacer(Modifier.width(4.dp))
+                    IconButton(
+                        onClick = onThemeToggle,
+                        modifier = Modifier.size(40.dp).testTag("theme_toggle"),
+                    ) {
+                        Icon(
+                            painter =
+                                painterResource(
+                                    if (isDarkTheme) R.drawable.ic_theme_sun else R.drawable.ic_theme_moon,
+                                ),
+                            contentDescription =
+                                if (isDarkTheme) "Switch to light theme" else "Switch to dark theme",
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                    }
                     IconButton(onClick = onLogout, modifier = Modifier.size(40.dp)) {
                         Icon(
                             painter = painterResource(R.drawable.ic_logout),
@@ -200,6 +223,15 @@ private fun NotesList(
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
+                }
+                Spacer(Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SyncStatus(currentSyncStatus, currentSyncHealth)
+                    Spacer(Modifier.weight(1f))
+                    RelayStatus(currentSyncHealth)
                 }
                 Spacer(Modifier.height(8.dp))
                 TextField(
@@ -305,6 +337,37 @@ private fun NotesList(
                     text = "+",
                     modifier = Modifier.rotate(if (addMenuExpanded) 45f else 0f),
                     fontSize = 28.sp,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RelayStatus(health: RelaySyncHealth) {
+    var expanded by remember { mutableStateOf(false) }
+    if (health.relays.isEmpty()) return
+
+    Box {
+        TextButton(
+            onClick = { expanded = true },
+            modifier = Modifier.testTag("relay_status"),
+        ) {
+            Text("Relay status", fontSize = 12.sp)
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            health.relays.forEach { relay ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            Text(relay.url.removePrefix("wss://"), fontSize = 12.sp)
+                            Text(relay.status.name.lowercase(), fontSize = 12.sp)
+                        }
+                    },
+                    onClick = { expanded = false },
                 )
             }
         }
@@ -649,6 +712,7 @@ private fun NoteEditor(
                 onItalic = { body = toggleInlineMarkdown(body, "_") },
                 onHeading = { body = insertHeading(body) },
                 onBullet = { body = insertBullet(body) },
+                onNumbered = { body = insertNumberedList(body) },
             )
         } else {
             NoteReadContent(title, body.text)
@@ -698,6 +762,14 @@ private fun NoteReadContent(
             line.startsWith("- ") -> {
                 Text(
                     text = buildMarkdownText("•  ${line.removePrefix("- ")}"),
+                    fontSize = 17.sp,
+                    lineHeight = 26.sp,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+            Regex("^\\d+\\. ").containsMatchIn(line) -> {
+                Text(
+                    text = buildMarkdownText(line),
                     fontSize = 17.sp,
                     lineHeight = 26.sp,
                     modifier = Modifier.padding(start = 12.dp),
@@ -766,8 +838,7 @@ private fun ChecklistEditor(
     var itemPendingDelete by remember(existingId) { mutableStateOf<ChecklistItem?>(null) }
     var clearCompletedRequested by remember(existingId) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
-    val focusManager = LocalFocusManager.current
-    val keyboardController = LocalSoftwareKeyboardController.current
+    val newItemFocusRequester = remember { FocusRequester() }
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
 
@@ -922,6 +993,7 @@ private fun ChecklistEditor(
                         modifier =
                             Modifier
                                 .weight(1f)
+                                .focusRequester(newItemFocusRequester)
                                 .testTag("checklist_add_item"),
                         placeholder = { Text("Add item", fontSize = 18.sp) },
                         textStyle = MaterialTheme.typography.bodyLarge.copy(fontSize = 18.sp),
@@ -945,9 +1017,8 @@ private fun ChecklistEditor(
                                         items += ChecklistItem(UUID.randomUUID().toString(), text, false)
                                         newItemText = ""
                                         coroutineScope.launch { saveIfNeeded(items) }
+                                        newItemFocusRequester.requestFocus()
                                     }
-                                    focusManager.clearFocus()
-                                    keyboardController?.hide()
                                 }.testTag("checklist_add_button"),
                         color = MaterialTheme.colorScheme.primary,
                     )
@@ -1147,6 +1218,7 @@ private fun MarkdownToolbar(
     onItalic: () -> Unit,
     onHeading: () -> Unit,
     onBullet: () -> Unit,
+    onNumbered: () -> Unit,
 ) {
     Row(
         modifier =
@@ -1155,29 +1227,51 @@ private fun MarkdownToolbar(
                 .windowInsetsPadding(WindowInsets.navigationBars)
                 .background(
                     MaterialTheme.colorScheme.surfaceVariant,
-                ).padding(vertical = 18.dp),
+                ).padding(vertical = 4.dp)
+                .testTag("format_toolbar"),
         horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        ToolbarAction("B", onBold, FontWeight.Bold)
-        ToolbarAction("I", onItalic, FontWeight.Normal)
-        ToolbarAction("H", onHeading, FontWeight.Normal)
-        ToolbarAction("•≡", onBullet, FontWeight.Normal)
+        ToolbarTextAction("B", "Bold", FontWeight.Bold, onBold)
+        ToolbarTextAction("I", "Italic", FontWeight.Normal, onItalic)
+        ToolbarTextAction("H", "Heading", FontWeight.Normal, onHeading)
+        ToolbarIconAction(R.drawable.ic_bullet_list, "Bullet list", onBullet)
+        ToolbarIconAction(R.drawable.ic_numbered_list, "Numbered list", onNumbered)
     }
 }
 
 @Composable
-private fun ToolbarAction(
-    label: String,
+private fun ToolbarIconAction(
+    icon: Int,
+    description: String,
     action: () -> Unit,
-    weight: FontWeight,
 ) {
-    Text(
-        label,
-        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = action).padding(horizontal = 14.dp),
-        color = MaterialTheme.colorScheme.primary,
-        fontSize = 28.sp,
-        fontWeight = weight,
-    )
+    IconButton(onClick = action, modifier = Modifier.size(40.dp)) {
+        Icon(
+            painter = painterResource(icon),
+            contentDescription = description,
+            modifier = Modifier.size(20.dp),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+}
+
+@Composable
+private fun ToolbarTextAction(
+    label: String,
+    description: String,
+    weight: FontWeight,
+    action: () -> Unit,
+) {
+    IconButton(onClick = action, modifier = Modifier.size(40.dp)) {
+        Text(
+            label,
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 20.sp,
+            fontWeight = weight,
+            modifier = Modifier.semantics { contentDescription = description },
+        )
+    }
 }
 
 @Composable

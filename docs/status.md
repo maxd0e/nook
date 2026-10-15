@@ -1,5 +1,20 @@
 # Nook Project Status
 
+## Android/web release-parity polish (2026-10-15)
+
+- The signed-in Android Notes list now shows the compact Nook logo and wordmark
+  at left, with the persisted light/dark action and icon-only logout at right.
+- Sync state and the expandable per-relay health disclosure share a dedicated
+  status row, matching the web workspace arrangement.
+- Checklist item entry keeps focus and the software keyboard ready for the next
+  item after an add; note editing now has web-matched bullet and numbered-list
+  vector controls, with numbered markdown display support.
+- The note formatting toolbar now uses compact, aligned B/I/H/list/numbered
+  controls directly above the Android navigation bar without covering native
+  Back or Home controls.
+- Added focused Compose and markdown regression coverage. Pending validation:
+  Android compilation/tests and release quality checks.
+
 ## GitHub Pages beta release preparation (2026-10-15)
 
 - The web deployment workflow now enables GitHub Pages through GitHub Actions

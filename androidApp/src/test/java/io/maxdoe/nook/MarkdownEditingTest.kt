@@ -23,11 +23,13 @@ class MarkdownEditingTest {
     }
 
     @Test
-    fun headingAndBullet_prefixTheCurrentLine() {
+    fun headingAndListActions_prefixTheCurrentLine() {
         val heading = insertHeading(TextFieldValue("first\nsecond", TextRange(8)))
         val bullet = insertBullet(TextFieldValue("one\ntwo", TextRange(5)))
+        val numbered = insertNumberedList(TextFieldValue("one\ntwo", TextRange(5)))
 
         assertEquals("first\n## second", heading.text)
         assertEquals("one\n- two", bullet.text)
+        assertEquals("one\n1. two", numbered.text)
     }
 }

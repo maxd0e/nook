@@ -30,6 +30,8 @@ internal fun insertHeading(value: TextFieldValue): TextFieldValue = prefixCurren
 
 internal fun insertBullet(value: TextFieldValue): TextFieldValue = prefixCurrentLine(value, "- ")
 
+internal fun insertNumberedList(value: TextFieldValue): TextFieldValue = prefixCurrentLine(value, "1. ")
+
 private fun prefixCurrentLine(
     value: TextFieldValue,
     prefix: String,

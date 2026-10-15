@@ -2,7 +2,7 @@ package io.maxdoe.nook
 
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotFocused
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -52,6 +52,39 @@ class NookNotesTest {
     }
 
     @Test
+    fun overviewShowsSignedInBrandThemeAndRelayStatus() {
+        val health =
+            RelaySyncHealth(
+                listOf(
+                    RelayConnectionHealth("wss://relay.example", RelayConnectionStatus.Connected),
+                ),
+            )
+        var themeToggled = false
+
+        composeRule.setContent {
+            NookTheme {
+                NookNotes(
+                    repository = repository(),
+                    syncStatus = MutableStateFlow(RelaySyncStatus.Synced),
+                    syncHealth = MutableStateFlow(health),
+                    isDarkTheme = false,
+                    onThemeToggle = { themeToggled = true },
+                    onLogout = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Nook logo").assertIsDisplayed()
+        composeRule.onNodeWithText("Nook").assertIsDisplayed()
+        composeRule.onNodeWithText("Synced").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Switch to dark theme").performClick()
+        check(themeToggled)
+        composeRule.onNodeWithTag("relay_status").performClick()
+        composeRule.onNodeWithText("relay.example").assertIsDisplayed()
+        composeRule.onNodeWithText("connected").assertIsDisplayed()
+    }
+
+    @Test
     fun search_filtersTheLiveNoteList() {
         val repository =
             repository().also {
@@ -94,7 +127,7 @@ class NookNotesTest {
     }
 
     @Test
-    fun addingAChecklistItemClearsTheInputFocus() {
+    fun addingAChecklistItemKeepsTheInputFocusedForTheNextItem() {
         val repository = repository()
 
         composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
@@ -104,7 +137,7 @@ class NookNotesTest {
         composeRule.onNodeWithTag("checklist_add_item").performTextInput("Passport")
         composeRule.onNodeWithTag("checklist_add_button").performClick()
 
-        composeRule.onNodeWithTag("checklist_add_item").assertIsNotFocused()
+        composeRule.onNodeWithTag("checklist_add_item").assertIsFocused()
     }
 
     @Test
@@ -232,6 +265,23 @@ class NookNotesTest {
             )?.title == "Garden plans"
         }
         composeRule.onNodeWithContentDescription("Edit note").assertIsDisplayed()
+    }
+
+    @Test
+    fun noteEditorShowsAllFormattingActionsInOneToolbar() {
+        val repository =
+            repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
+
+        composeRule.setContent { NookTheme { NookNotes(repository, onLogout = {}) } }
+
+        composeRule.onNodeWithTag("note_garden").performClick()
+        composeRule.onNodeWithContentDescription("Edit note").performClick()
+        composeRule.onNodeWithTag("format_toolbar").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Bold").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Italic").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Heading").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Bullet list").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Numbered list").assertIsDisplayed()
     }
 
     @Test
