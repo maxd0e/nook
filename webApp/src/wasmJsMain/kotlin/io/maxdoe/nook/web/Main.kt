@@ -676,8 +676,8 @@ private fun continueListOnEnter(
     note: Draft.Note,
 ): Boolean {
     val input = event.target as? HTMLTextAreaElement ?: return false
-    if (input.selectionStart != input.selectionEnd) return false
-    val insertion = input.selectionStart
+    val insertion = input.selectionStart ?: return false
+    if (insertion != input.selectionEnd) return false
     val currentLine = input.value.substring(0, insertion).substringAfterLast('\n')
     val prefix =
         numberedListPrefix
