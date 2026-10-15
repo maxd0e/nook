@@ -38,4 +38,5 @@ test('production bundle starts under the release content-security-policy', async
     const response = await page.goto(origin)
     expect(response?.headers()['content-security-policy']).toBe(csp)
     await expect(page.getByRole('heading', { name: 'Nook' })).toBeVisible()
+    await expect(page.getByText('Beta preview')).toBeVisible()
 })

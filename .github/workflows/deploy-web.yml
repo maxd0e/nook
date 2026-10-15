@@ -27,7 +27,7 @@ jobs:
         with:
           enablement: true
       - run: chmod +x gradlew
-      - run: ./gradlew :webApp:ktlintCheck :webApp:wasmJsBrowserTest :webApp:wasmJsBrowserProductionWebpack
+      - run: ./gradlew :webApp:ktlintCheck :webApp:wasmJsBrowserTest :webApp:wasmJsBrowserDistribution
       - uses: actions/upload-pages-artifact@v3
         with:
           path: webApp/build/dist/wasmJs/productionExecutable
