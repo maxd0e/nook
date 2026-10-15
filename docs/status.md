@@ -1,5 +1,15 @@
 # Nook Project Status
 
+## GitHub Pages beta release preparation (2026-10-15)
+
+- The web deployment workflow now enables GitHub Pages through GitHub Actions
+  when needed and deploys the production Wasm bundle from `master`.
+- The welcome screen labels the public site as a beta preview. The local
+  production bundle and strict-CSP startup test pass.
+- Before a full release, manually verify real-relay and NIP-07 sessions plus
+  Chrome, Firefox, and Safari sign-in, typing, responsive layout, and logout
+  storage cleanup.
+
 ## Web checklist inline-add editing update (2026-10-15)
 
 - Adding a checklist item in the web editor now persists the item while keeping

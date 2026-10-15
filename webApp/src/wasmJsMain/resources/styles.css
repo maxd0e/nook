@@ -51,6 +51,7 @@ h1 { font-family: Georgia, serif; font-size: clamp(42px, 12vw, 52px); line-heigh
 }
 
 .promise, .eyebrow, .privacy, .copy-feedback { color: var(--secondary); line-height: 1.5; margin: 0; }
+.beta { color: var(--teal); font-size: 12px; font-weight: 700; letter-spacing: 1.4px; margin: 0; text-transform: uppercase; }
 .privacy { font-size: 13px; text-align: center; }
 .compatibility { background: color-mix(in srgb, var(--teal), transparent 90%); border-radius: 10px; color: var(--ink); font-size: 14px; line-height: 1.45; margin: 0; padding: 10px 12px; }
 .actions { display: grid; gap: 12px; margin-top: 16px; }

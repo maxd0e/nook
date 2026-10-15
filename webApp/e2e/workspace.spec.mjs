@@ -84,6 +84,7 @@ test('welcome is keyboard accessible at desktop and narrow widths', async ({ pag
     await page.setViewportSize({ width: 1200, height: 800 })
     await page.goto(origin)
     await expect(page.getByRole('heading', { name: 'Nook' })).toBeVisible()
+    await expect(page.getByText('Beta preview')).toBeVisible()
     await expect(page.locator('img.nook-mark')).toHaveAttribute('src', 'nook.svg')
     await expect(page.locator('.extension-help')).toHaveCount(0)
     await page.getByRole('button', { name: 'Toggle theme' }).press('Enter')

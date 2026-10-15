@@ -24,6 +24,8 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - run: ./gradlew :webApp:ktlintCheck :webApp:wasmJsBrowserTest :webApp:wasmJsBrowserProductionWebpack
       - uses: actions/upload-pages-artifact@v3
         with:

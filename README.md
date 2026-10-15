@@ -72,3 +72,7 @@ The Android app implements encrypted notes, checklists, local search, relay
 sync, local-key login, and Android signer-app support. Remaining release work
 includes real-device relay and visual verification; see
 [`docs/status.md`](docs/status.md) for the authoritative, up-to-date details.
+
+The web client is available as a beta preview at
+<https://maxd0e.github.io/nook/>. Use a current desktop or mobile browser;
+real-relay, NIP-07, Firefox, and Safari release validation remain in progress.

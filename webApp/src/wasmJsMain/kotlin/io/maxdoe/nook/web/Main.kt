@@ -749,7 +749,7 @@ private suspend fun copy(key: String) {
 }
 
 private fun welcomeMarkup() =
-    "<main class=welcome>${themeButton()}<div class=welcome-content><img class=nook-mark src=nook.svg alt=\"Nook logo\"/><h1>Nook</h1><p class=promise>Your encrypted notes stay yours.</p>${error()}<div class=actions><button id=create-key>Create a new key</button><button id=paste-key class=secondary>I have a Nostr key</button><button id=extension-login class=text-button>Sign in with a browser extension</button></div></div><p class=privacy>Your private key never leaves this browser tab.</p></main>"
+    "<main class=welcome>${themeButton()}<div class=welcome-content><img class=nook-mark src=nook.svg alt=\"Nook logo\"/><h1>Nook</h1><p class=beta>Beta preview</p><p class=promise>Your encrypted notes stay yours.</p>${error()}<div class=actions><button id=create-key>Create a new key</button><button id=paste-key class=secondary>I have a Nostr key</button><button id=extension-login class=text-button>Sign in with a browser extension</button></div></div><p class=privacy>Your private key never leaves this browser tab.</p></main>"
 
 private fun pasteMarkup() =
     "<main class=\"welcome key-flow\"><button id=back class=back aria-label=Back>←</button>${themeButton()}<div class=welcome-content><p class=eyebrow>Sign in</p><h1>Your Nostr key</h1><p class=promise>Paste your private <code>nsec</code>. It remains in this tab only.</p>${error()}<label for=nsec>Private key</label><input id=nsec type=password autocomplete=off/><button id=continue>Continue</button></div></main>"
