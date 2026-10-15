@@ -99,7 +99,7 @@ jobs:
           "$apksigner" verify --verbose --print-certs "$apk"
           sha256sum "$apk" > androidApp/build/outputs/apk/release/SHA256SUMS.txt
       - name: Install Zapstore publisher
-        run: go install github.com/zapstore/zsp@latest
+        run: go install github.com/zapstore/zsp/cmd/zsp@latest
       - name: Inspect APK metadata
         shell: bash
         run: "$HOME/go/bin/zsp apk --extract androidApp/build/outputs/apk/release/androidApp-release.apk"

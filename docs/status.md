@@ -11,6 +11,13 @@
   verification after the signed APK build succeeded but the former command
   failed to find an `Owner:` line for the APK signing scheme.
 
+## Zapstore publisher installation repair (2026-10-15)
+
+- Updated the Android release workflow to install the Zapstore CLI's executable
+  package (`github.com/zapstore/zsp/cmd/zsp`) rather than its library module.
+  The previous `go install github.com/zapstore/zsp@latest` command fails now
+  that the module root is no longer a Go `main` package.
+
 ## Release automation preparation (2026-10-15)
 
 - Added the tag-gated Android `v*` release workflow. It runs Android quality
