@@ -53,6 +53,26 @@ class NoteRepositoryTest {
         }
 
     @Test
+    fun tombstoneSuppressesLaterStaleVersionAfterRepositoryReload() =
+        runTest {
+            val store = FakeEncryptedEventStore()
+            val repository = NoteRepository(store, codec, EpochSecondsClock { 50 })
+            val original = codec.build("deleted", NotePayload("Old", "Body", false, 1, 1), 20)
+            val tombstone = codec.build("deleted", TombstonePayload(21), 21)
+            val staleDeviceVersion = codec.build("deleted", NotePayload("Returned", "No", false, 1, 1), 99)
+
+            repository.receive(original)
+            repository.receive(tombstone)
+            repository.receive(staleDeviceVersion)
+            assertTrue(repository.notes.value.isEmpty())
+
+            NoteRepository(store, codec, EpochSecondsClock { 100 }).also { restored ->
+                restored.load()
+                assertTrue(restored.notes.value.isEmpty())
+            }
+        }
+
+    @Test
     fun noteCommands_createEditPinAndDeleteTheResolvedNote() =
         runTest {
             val store = FakeEncryptedEventStore()

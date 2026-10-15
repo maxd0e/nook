@@ -1,5 +1,18 @@
 # Nook Project Status
 
+## Web workspace and deletion reliability update (2026-10-15)
+
+- Replaced the web workspace's floating add control with a rectangular New note
+  control above the note sections. A new empty note can switch to checklist
+  editing before it is saved.
+- Added distinct bullet-list and numbered-list editor controls, widened the
+  bounded desktop editor, and reserved space so the formatting toolbar does
+  not cover body text. Relay status now shares the sync-status row at its
+  right edge.
+- Tombstones now permanently suppress every version of the same item ID,
+  preventing a stale device edit from restoring a deleted note after refresh
+  or relay replay. Repository coverage includes this persisted reload case.
+
 ## Web logout route reset (2026-10-14)
 
 - Logging out from a routed note or checklist now clears the browser fragment

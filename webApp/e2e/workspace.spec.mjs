@@ -42,8 +42,7 @@ async function signIn(page) {
 }
 
 async function createNote(page, title, body) {
-    await page.getByRole('button', { name: 'Create note or checklist' }).click()
-    await page.getByRole('button', { name: 'Note' }).click()
+    await page.getByRole('button', { name: 'New note' }).click()
     await page.locator('#editor-title').fill(title)
     await page.locator('#editor-body').fill(body)
     await page.getByRole('button', { name: 'Save' }).click()
@@ -64,8 +63,8 @@ async function repeatedlyOpenNote(page, title) {
 }
 
 async function createChecklist(page, title) {
-    await page.getByRole('button', { name: 'Create note or checklist' }).click()
-    await page.getByRole('button', { name: 'Checklist' }).click()
+    await page.getByRole('button', { name: 'New note' }).click()
+    await page.getByRole('button', { name: 'Create checklist instead' }).click()
     await page.locator('#editor-title').fill(title)
     await page.locator('#new-item').fill('First item')
     await page.getByRole('button', { name: 'Add' }).click()
@@ -92,10 +91,14 @@ test('notes can be created, formatted, pinned, searched, and deleted', async ({ 
     await createNote(page, 'Garden plan', 'Spring seeds')
     await repeatedlyOpenNote(page, 'Garden plan')
     await page.getByRole('button', { name: 'Edit' }).click()
-    await page.getByRole('button', { name: 'B', exact: true }).click()
-    await page.getByRole('button', { name: 'H', exact: true }).click()
+    await page.getByRole('button', { name: 'Bold' }).click()
+    await page.getByRole('button', { name: 'Heading' }).click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.locator('.markdown h2 strong')).toContainText('Spring seeds')
+    await page.getByRole('button', { name: 'Edit' }).click()
+    await page.getByRole('button', { name: 'Numbered list' }).click()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.locator('.markdown .numbered')).toContainText('1.')
     await page.getByRole('button', { name: 'Pin' }).click()
     await page.getByRole('button', { name: 'Close note' }).click()
     await expect(page.getByRole('heading', { name: 'PINNED' })).toBeVisible()

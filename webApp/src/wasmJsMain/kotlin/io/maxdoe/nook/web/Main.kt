@@ -27,7 +27,6 @@ private val controller = WebLoginController()
 private var observer: Job? = null
 private var route = "#/notes"
 private var query = ""
-private var addOpen = false
 private var confirm: Confirm? = null
 private var draft: Draft? = null
 
@@ -189,12 +188,7 @@ private fun bindWorkspace() {
             window.history.replaceState(null, "", window.location.pathname + window.location.search)
         }
     }
-    click("add-toggle") {
-        addOpen = !addOpen
-        render()
-    }
     click("new-note") { nav("#/note/new") }
-    click("new-checklist") { nav("#/checklist/new") }
     click("confirm-cancel") {
         confirm = null
         render()
@@ -268,6 +262,14 @@ private fun bindEditor() {
     click("format-italic") { format("_") }
     click("format-heading") { prefix("## ") }
     click("format-bullet") { prefix("- ") }
+    click("format-numbered") { prefix("1. ") }
+    click("switch-to-checklist") {
+        val note = current as? Draft.Note ?: return@click
+        if (note.id == null && note.title.isBlank() && note.body.isBlank()) {
+            draft = Draft.Checklist(null, "", emptyList(), editing = true)
+            render()
+        }
+    }
     if (current is Draft.Checklist) bindChecklist(current)
 }
 
@@ -373,8 +375,12 @@ private fun listMarkup(
     val statusMarkup = sync(status)
     val healthMarkup = relayHealth(health)
     val searchIcon = icon("search")
+    val header =
+        "<header class=list-header><div class=app-brand><img class=app-brand-mark src=nook.svg alt=\"\"/><h1 class=notes-title>Nook</h1></div><div class=list-actions>$theme<button id=logout class=logout-button aria-label=\"Log out\">$logoutIcon</button></div></header>"
+    val search =
+        "<label class=sr-only for=notes-search>Search notes</label><div class=search-field>$searchIcon<input id=notes-search class=search placeholder=\"Search\" value=\"${query.escape()}\"/></div>"
     val addIcon = icon("add")
-    return "<header class=list-header><div class=app-brand><img class=app-brand-mark src=nook.svg alt=\"\"/><h1 class=notes-title>Nook</h1></div><div class=list-actions>$theme<button id=logout class=logout-button aria-label=\"Log out\">$logoutIcon</button></div></header><div class=side-status>$statusMarkup$healthMarkup</div><label class=sr-only for=notes-search>Search notes</label><div class=search-field>$searchIcon<input id=notes-search class=search placeholder=\"Search\" value=\"${query.escape()}\"/></div>$cards<div class=\"speed-dial ${if (addOpen) "open" else ""}\"><button id=new-checklist class=speed-action>Checklist</button><button id=new-note class=speed-action>Note</button><button id=add-toggle class=add-button aria-label=\"${if (addOpen) "Close add menu" else "Create note or checklist"}\">$addIcon</button></div>"
+    return "$header<div class=side-status>$statusMarkup$healthMarkup</div>$search<button id=new-note class=new-note-button>$addIcon<span>New note</span></button>$cards"
 }
 
 private fun card(item: NookListItem): String =
@@ -405,20 +411,32 @@ private fun detailMarkup(item: NookListItem?): String {
     val top = "<header class=editor-header><span class=editor-header-spacer></span><button id=\"editor-${editorAction.lowercase()}\" class=icon-button aria-label=\"$editorAction\">$editorIcon</button><button id=editor-pin class=icon-button aria-label=Pin>$pinIcon</button><button id=editor-delete class=icon-button aria-label=Delete>$deleteIcon</button><button id=close-editor class=icon-button aria-label=\"Close note\">$closeIcon</button></header>"
     return top +
         when (current) {
-            is Draft.Note -> noteEditor(current)
+            is Draft.Note -> noteEditorMarkup(current)
             is Draft.Checklist -> checklistEditor(current)
         }
 }
 
-private fun noteEditor(note: Draft.Note): String =
+private fun noteEditorMarkup(note: Draft.Note): String =
     if (note.editing) {
-        "<div class=editor><input id=editor-title class=title-input placeholder=Untitled value=\"${note.title.escape()}\"/><textarea id=editor-body placeholder=\"Start writing…\">${note.body.escape()}</textarea><nav class=format-toolbar aria-label=Formatting><button id=format-bold><b>B</b></button><button id=format-italic><i>I</i></button><button id=format-heading>H</button><button id=format-bullet>•</button></nav></div>"
+        val typeSwitch =
+            if (note.id == null && note.title.isBlank() && note.body.isBlank()) {
+                "<button id=switch-to-checklist class=switch-type-button>Create checklist instead</button>"
+            } else {
+                ""
+            }
+        "<div class=editor>" +
+            "<input id=editor-title class=title-input placeholder=Untitled value=\"${note.title.escape()}\"/>" +
+            "<textarea id=editor-body placeholder=\"Start writing\">${note.body.escape()}</textarea>" +
+            "<nav class=format-toolbar aria-label=Formatting>" +
+            "<button id=format-bold aria-label=\"Bold\"><b>B</b></button>" +
+            "<button id=format-italic aria-label=\"Italic\"><i>I</i></button>" +
+            "<button id=format-heading aria-label=\"Heading\">H</button>" +
+            "<button id=format-bullet aria-label=\"Bullet list\">${icon("bullet-list")}</button>" +
+            "<button id=format-numbered aria-label=\"Numbered list\">${icon("numbered-list")}</button>" +
+            "</nav>$typeSwitch</div>"
     } else {
-        "<article class=read-view><h1>${note.title.ifBlank {
-            "Untitled"
-        }.escape()}</h1><div class=markdown>${markdown(
-            note.body,
-        )}</div></article>"
+        val title = note.title.ifBlank { "Untitled" }.escape()
+        "<article class=read-view><h1>$title</h1><div class=markdown>${markdown(note.body)}</div></article>"
     }
 
 private fun checklistEditor(list: Draft.Checklist): String {
@@ -630,6 +648,7 @@ private fun markdown(value: String) =
     value.lineSequence().joinToString("") { line ->
         when {
             line.startsWith("## ") -> "<h2>${inline(line.removePrefix("## "))}</h2>"
+            Regex("^\\d+\\. ").containsMatchIn(line) -> "<p class=numbered>${inline(line)}</p>"
             line.startsWith("- ") -> "<p class=bullet>• ${inline(line.removePrefix("- "))}</p>"
             line.isBlank() -> "<br>"
             else -> "<p>${inline(line)}</p>"
@@ -713,6 +732,8 @@ private fun icon(name: String): String {
             "delete" -> "<path d=\"M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12Zm2-10h8v10H8V9Zm7.5-5-1-1h-5l-1 1H5v2h14V4h-3.5Z\"/>"
             "close" -> "<path d=\"m6.7 5.3 5.3 5.3 5.3-5.3 1.4 1.4-5.3 5.3 5.3 5.3-1.4 1.4-5.3-5.3-5.3 5.3-1.4-1.4 5.3-5.3-5.3-5.3Z\"/>"
             "add" -> "<path d=\"M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6V5Z\"/>"
+            "bullet-list" -> "<circle cx=\"5\" cy=\"6\" r=\"1.5\"/><circle cx=\"5\" cy=\"12\" r=\"1.5\"/><circle cx=\"5\" cy=\"18\" r=\"1.5\"/><path d=\"M9 5h10v2H9zm0 6h10v2H9zm0 6h10v2H9z\"/>"
+            "numbered-list" -> "<path d=\"M4 5h1v4H4V6H3V5h1Zm-1 7h2v1H4v1h1v1H3v-1h1v-1H3v-1Zm0 6h2v1H4v1h1v1H3v-1h1v-1H3v-1Zm6-13h10v2H9zm0 6h10v2H9zm0 6h10v2H9z\"/>"
             "edit" -> "<path d=\"M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25ZM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83Z\"/>"
             "logout" -> "<path d=\"M5 5c0-1.1.9-2 2-2h5v2H7v14h5v2H7c-1.1 0-2-.9-2-2V5Zm11.6 2.6L15.2 9l2 2H9v2h8.2l-2 2 1.4 1.4 4.4-4.4-4.4-4.4Z\"/>"
             "search" -> "<path d=\"m15.5 14h-.8l-.3-.3a6.5 6.5 0 1 0-.7.7l.3.3v.8l5 5L20.5 19l-5-5Zm-6 0A4.5 4.5 0 1 1 9.5 5a4.5 4.5 0 0 1 0 9Z\"/>"

@@ -171,11 +171,15 @@ class NoteRepository(
             parsedEvents
                 .groupBy(ParsedNookEvent::noteId)
                 .mapNotNull { (noteId, candidates) ->
+                    // Deletion is terminal for an item ID. A device can hold an old edit with a
+                    // later wall-clock timestamp, but it must not bring a permanently deleted
+                    // item back after a reload or relay replay.
+                    if (candidates.any { it.payload is TombstonePayload }) return@mapNotNull null
                     val winner =
                         candidates.reduce { selected, candidate ->
                             if (candidate.isNewerThan(selected)) candidate else selected
                         }
-                    winner.takeUnless { it.payload is TombstonePayload }?.let {
+                    winner.let {
                         NookListItem(
                             id = noteId,
                             payload = it.payload,
