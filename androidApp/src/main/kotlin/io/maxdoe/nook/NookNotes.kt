@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -190,7 +191,12 @@ private fun NotesList(
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
 
-    Box(Modifier.fillMaxSize().testTag("notes_list")) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(WindowInsets.statusBars)
+            .testTag("notes_list"),
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(horizontal = 20.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -603,6 +609,7 @@ private fun NoteEditor(
         Modifier
             .fillMaxSize()
             .then(if (isEditing) Modifier else Modifier.verticalScroll(rememberScrollState()))
+            .windowInsetsPadding(WindowInsets.statusBars)
             .padding(horizontal = 24.dp)
             .testTag("note_editor"),
     ) {
@@ -873,6 +880,7 @@ private fun ChecklistEditor(
         Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
+            .windowInsetsPadding(WindowInsets.statusBars)
             .windowInsetsPadding(WindowInsets.navigationBars)
             .testTag("checklist_editor"),
     ) {

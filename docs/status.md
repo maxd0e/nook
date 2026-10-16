@@ -1,5 +1,15 @@
 # Nook Project Status
 
+## Android signed-in status-bar inset fix (2026-10-17)
+
+- Added status-bar inset padding to the signed-in Notes list and both editor
+  roots. Their header controls now stay below display cutouts and status icons
+  on edge-to-edge Pixels, while the existing navigation-bar protection remains
+  in place for bottom actions.
+- Validation passes: Android debug assembly, Android/shared unit tests, Detekt,
+  ktlint, and Android Lint. A physical Pixel/Samsung tap check for the header
+  controls in both themes remains pending.
+
 ## Zapstore web-sync listing update (2026-10-17)
 
 - Updated the Zapstore summary and description to state that Nook synchronizes
