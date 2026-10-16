@@ -22,6 +22,10 @@
   installation passed but the retired `apk --extract` command was rejected.
 - Replaced the retired `-y` confirmation flag on the publish command with
   `--quiet --skip-preview`, the current non-interactive Zapstore CLI flags.
+- The `v0.5.12` publisher introduced a certificate-proof requirement that
+  blocked Nook's first release. The workflow now pins `zsp v0.4.17`, the
+  version and non-interactive publish flow proven by the successful Glance
+  Android release workflow, until certificate linking is deliberately adopted.
 
 ## Release automation preparation (2026-10-15)
 
