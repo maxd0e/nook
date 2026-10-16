@@ -26,6 +26,8 @@
   blocked Nook's first release. The workflow now pins `zsp v0.4.17`, the
   version and non-interactive publish flow proven by the successful Glance
   Android release workflow, until certificate linking is deliberately adopted.
+- The pinned CLI retains the `utils extract-apk` metadata command; the old
+  `apk --extract` alias is not available in that version.
 
 ## Release automation preparation (2026-10-15)
 
