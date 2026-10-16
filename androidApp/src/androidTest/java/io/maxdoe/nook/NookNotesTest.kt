@@ -268,7 +268,7 @@ class NookNotesTest {
     }
 
     @Test
-    fun noteEditorShowsAllFormattingActionsInOneToolbar() {
+    fun noteFormattingActionsRestoreBodyFocus() {
         val repository =
             repository().also { runBlocking { it.createNote("garden", "Garden", "Plant seeds") } }
 
@@ -282,6 +282,11 @@ class NookNotesTest {
         composeRule.onNodeWithContentDescription("Heading").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Bullet list").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Numbered list").assertIsDisplayed()
+
+        listOf("Bold", "Italic", "Heading", "Bullet list", "Numbered list").forEach { action ->
+            composeRule.onNodeWithContentDescription(action).performClick()
+            composeRule.onNodeWithTag("note_body").assertIsFocused()
+        }
     }
 
     @Test

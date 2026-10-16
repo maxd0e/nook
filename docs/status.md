@@ -1,5 +1,16 @@
 # Nook Project Status
 
+## Note formatting keyboard-focus fix (2026-10-17)
+
+- Each Android note formatting action now restores focus to the note body and
+  requests the software keyboard after inserting markdown, so typing can
+  continue immediately inside inline markers or after a line prefix.
+- Selected text retains its existing wrapped selection behavior. Compose
+  coverage verifies body focus returns after Bold, Italic, Heading, Bullet,
+  and Numbered-list actions.
+- Validation passes: `:androidApp:compileDebugAndroidTestKotlin`,
+  `:androidApp:ktlintCheck`, and `:androidApp:testDebugUnitTest`.
+
 ## Android signed-in status-bar inset fix (2026-10-17)
 
 - Added status-bar inset padding to the signed-in Notes list and both editor

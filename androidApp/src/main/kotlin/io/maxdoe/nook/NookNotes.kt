@@ -62,6 +62,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
@@ -577,8 +578,16 @@ private fun NoteEditor(
     var isEditing by remember(existingId) { mutableStateOf(startsInEditMode) }
     var deleteRequested by remember(existingId) { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val bodyFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     val currentSyncStatus by syncStatus.collectAsState()
     val currentSyncHealth by syncHealth.collectAsState()
+
+    fun formatBody(transform: (TextFieldValue) -> TextFieldValue) {
+        body = transform(body)
+        bodyFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
 
     suspend fun saveIfNeeded(): Boolean {
         if (title == savedTitle && body.text == savedBody) return false
@@ -709,18 +718,23 @@ private fun NoteEditor(
             OutlinedTextField(
                 value = body,
                 onValueChange = { body = continueListOnEnter(body, it) },
-                modifier = Modifier.fillMaxWidth().weight(1f).testTag("note_body"),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .focusRequester(bodyFocusRequester)
+                        .testTag("note_body"),
                 placeholder = { Text("Start writing…", fontSize = 17.sp) },
                 textStyle =
                     androidx.compose.ui.text
                         .TextStyle(fontSize = 17.sp, lineHeight = 26.sp),
             )
             MarkdownToolbar(
-                onBold = { body = toggleInlineMarkdown(body, "**") },
-                onItalic = { body = toggleInlineMarkdown(body, "_") },
-                onHeading = { body = insertHeading(body) },
-                onBullet = { body = insertBullet(body) },
-                onNumbered = { body = insertNumberedList(body) },
+                onBold = { formatBody { toggleInlineMarkdown(it, "**") } },
+                onItalic = { formatBody { toggleInlineMarkdown(it, "_") } },
+                onHeading = { formatBody(::insertHeading) },
+                onBullet = { formatBody(::insertBullet) },
+                onNumbered = { formatBody(::insertNumberedList) },
             )
         } else {
             NoteReadContent(title, body.text)
