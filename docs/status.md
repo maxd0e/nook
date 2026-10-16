@@ -1,5 +1,13 @@
 # Nook Project Status
 
+## Zapstore web-sync listing update (2026-10-17)
+
+- Updated the Zapstore summary and description to state that Nook synchronizes
+  between Android and the web with the same key, without printing a web address
+  in the listing copy.
+- Added all five `docs/pics/nook-play-*.png` assets as the ordered Zapstore
+  screenshot gallery. The existing Website metadata link remains unchanged.
+
 ## Web deployment formatting repair (2026-10-15)
 
 - Fixed the `continueListOnEnter` Kotlin chain formatting that blocked the
